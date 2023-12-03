@@ -2,17 +2,18 @@
 pub mod animal;
 pub mod flash;
 
-use std:: time::Duration;
-
 use axum::{
     extract::State,
-    http::{HeaderMap, StatusCode},
+    http::HeaderMap,
     routing::get,
-     Json, Router,
+    Json, Router,
 };
+
+use flash::Whortleberry;
 use log::{error, info};
 use serde::{Deserialize, Serialize};
-use sqlx::{mysql::MySqlPoolOptions,MySql, Pool};
+use sqlx::{mysql::MySqlPoolOptions, MySql, Pool};
+use std::time::Duration;
 
 pub async fn start(app_conf: conf::app::AppConfig) -> anyhow::Result<()> {
     let state = AppState {
@@ -34,7 +35,7 @@ pub struct Data {
     value: String,
 }
 
-async fn index(state: State<AppState>, header: HeaderMap) -> (StatusCode, Json<Vec<Data>>) {
+async fn index(state: State<AppState>, header: HeaderMap) -> Json<Whortleberry<Vec<Data>>> {
     // state.conn.
     let _ = &state.conn;
     info!("query {:?}", header);
@@ -47,7 +48,11 @@ async fn index(state: State<AppState>, header: HeaderMap) -> (StatusCode, Json<V
         })
     }
     error!("");
-    (StatusCode::OK, Json(v))
+    Json(Whortleberry {
+        err_no: 10000,
+        err_msg: "success".to_string(),
+        data: v,
+    })
 }
 
 #[derive(Clone)]
