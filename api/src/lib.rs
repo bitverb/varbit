@@ -103,7 +103,7 @@ pub async fn time_out_handler(err: BoxError) -> Json<Whortleberry<HashMap<String
 }
 
 /// add background task
-async fn start_task(_state: State<AppState>) -> Json<Whortleberry<(String,String)>> {
+async fn start_task(_state: State<AppState>) -> Json<Whortleberry<(String, String)>> {
     tokio::task::spawn(async {
         let mut v = W_LOCK.lock().unwrap();
         *v += 1;
@@ -117,7 +117,10 @@ async fn start_task(_state: State<AppState>) -> Json<Whortleberry<(String,String
     Json(Whortleberry {
         err_no: 10000,
         err_msg: format!("success",).to_owned(),
-        data: (Local::now().format("%Y-%m-%d %H:%M:%S.%f").to_string(),format!("success {}", *_cnt+1)),
+        data: (
+            Local::now().format("%Y-%m-%d %H:%M:%S.%f").to_string(),
+            format!("success {}", *_cnt + 1),
+        ),
     })
 }
 
