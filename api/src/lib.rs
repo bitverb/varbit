@@ -25,14 +25,15 @@ use std::{collections::HashMap, net::SocketAddr, time::Duration};
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use lazy_static::lazy_static;
-lazy_static! {
-    pub static ref W_LOCK: Arc<Mutex<i64>> = Arc::new(Mutex::new(0));
-}
 
 use tower_http::{
     cors::{self, CorsLayer},
     limit::RequestBodyLimitLayer,
 };
+
+lazy_static! {
+    pub static ref W_LOCK: Arc<Mutex<i64>> = Arc::new(Mutex::new(0));
+}
 
 pub async fn start(app_conf: conf::app::AppConfig) -> anyhow::Result<()> {
     let state: AppState = AppState {
@@ -103,7 +104,7 @@ pub async fn time_out_handler(err: BoxError) -> Json<Whortleberry<HashMap<String
 }
 
 /// add background task
-async fn start_task(_state: State<AppState>) -> Json<Whortleberry<(String,String)>> {
+async fn start_task(_state: State<AppState>) -> Json<Whortleberry<(String, String)>> {
     tokio::task::spawn(async {
         let mut v = W_LOCK.lock().unwrap();
         *v += 1;
@@ -117,7 +118,10 @@ async fn start_task(_state: State<AppState>) -> Json<Whortleberry<(String,String
     Json(Whortleberry {
         err_no: 10000,
         err_msg: format!("success",).to_owned(),
-        data: (Local::now().format("%Y-%m-%d %H:%M:%S.%f").to_string(),format!("success {}", *_cnt+1)),
+        data: (
+            Local::now().format("%Y-%m-%d %H:%M:%S.%f").to_string(),
+            format!("success {}", *_cnt + 1),
+        ),
     })
 }
 
