@@ -1,0 +1,22 @@
+[package]
+name = "verb"
+version = "0.1.0"
+edition = "2021"
+authors = ["xx <2356450144@qq.com>"]
+publish = false
+
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+vlog = { path = "./vlog" }
+api = { path = "./api" }
+conf = { path = "./conf" }
+
+anyhow = { version = "1.0.75", features = ["default"] }
+serde = { version = "1.0.189", features = ["default"] }
+tokio = { version = "1.33.0", features = ["full"] }
+clap = { version = "4.4.6", features = ["derive"] }
+env_logger = "0.10.0"
+log = "0.4.20"
+toml = { version = "0.8.2", features = ["default"] }

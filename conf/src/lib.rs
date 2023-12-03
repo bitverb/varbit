@@ -2,7 +2,7 @@ use std::fs;
 
 use app::AppConfig;
 
-mod app;
+pub mod app;
 
 pub fn from_path(path: String) -> AppConfig {
     let config_txt: String = match fs::read_to_string(path.to_owned()) {
