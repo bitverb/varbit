@@ -4,29 +4,90 @@ pub mod flash;
 
 use axum::{
     extract::State,
-    http::HeaderMap,
+    http::{HeaderMap, Method},
     routing::get,
     Json, Router,
 };
 
+use axum::BoxError;
 use flash::Whortleberry;
 use log::{error, info};
 use serde::{Deserialize, Serialize};
-use sqlx::{mysql::MySqlPoolOptions, MySql, Pool};
-use std::time::Duration;
+use sqlx::{mysql::MySqlPoolOptions, types::chrono, MySql, Pool};
+
+use std::{collections::HashMap, net::SocketAddr, time::Duration};
+
+use tower_http::{
+    cors::{self, CorsLayer},
+    limit::RequestBodyLimitLayer,
+};
 
 pub async fn start(app_conf: conf::app::AppConfig) -> anyhow::Result<()> {
-    let state = AppState {
+    let state: AppState = AppState {
         conn: build_db(app_conf.data.db.clone()).await,
     };
 
-    let app = Router::new().route("/", get(index)).with_state(state);
+    let cors: CorsLayer = CorsLayer::new()
+        .allow_methods(vec![Method::GET, Method::POST, Method::PUT])
+        .allow_origin(cors::Any);
+    let limit: RequestBodyLimitLayer = RequestBodyLimitLayer::new(1024 * 10);
 
-    let listener = tokio::net::TcpListener::bind(&app_conf.http.listen.as_str())
+    let app = Router::new()
+        .layer(limit)
+        .layer(cors)
+        .route("/", get(index))
+        .fallback(handler_404)
+        .with_state(state);
+
+
+    let addr = SocketAddr::from(([0, 0, 0, 0], 8080));
+
+    axum::Server::bind(&addr)
+        .serve(app.into_make_service())
         .await
         .unwrap();
-    axum::serve(listener, app).await?;
     Ok(())
+}
+
+pub async fn handler_404() -> Json<Whortleberry<HashMap<String, String>>> {
+    let mut data = HashMap::new();
+    data.insert(
+        String::from("ts"),
+        chrono::Utc::now().timestamp().to_string(),
+    );
+    data.insert(String::from("info"), "欢迎使用".to_owned());
+
+    Json(Whortleberry {
+        err_no: 404,
+        err_msg: "a he, 404 not found!".to_string(),
+        data,
+    })
+}
+
+pub async fn time_out_handler(err: BoxError) -> Json<Whortleberry<HashMap<String, String>>> {
+    let mut data: HashMap<String, String> = HashMap::new();
+    data.insert(
+        String::from("ts"),
+        chrono::Utc::now().timestamp().to_string(),
+    );
+    data.insert(String::from("info"), "欢迎使用".to_owned());
+    error!("error info {:?}", err);
+    info!("error info {:?}", err);
+    let v: Json<Whortleberry<HashMap<String, String>>> =
+        if err.is::<tower::timeout::error::Elapsed>() {
+            Json(Whortleberry {
+                err_no: 404,
+                err_msg: "time out".to_string(),
+                data,
+            })
+        } else {
+            Json(Whortleberry {
+                err_no: 404,
+                err_msg: "time out".to_string(),
+                data,
+            })
+        };
+    return v;
 }
 
 #[derive(Debug, Serialize, Deserialize)]
