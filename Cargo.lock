@@ -1816,6 +1816,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "service"
+version = "0.1.0"
+dependencies = [
+ "log",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "sha1"
 version = "0.10.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2633,6 +2642,7 @@ dependencies = [
  "env_logger",
  "log",
  "serde",
+ "service",
  "tokio",
  "toml",
  "vlog",

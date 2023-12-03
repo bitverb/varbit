@@ -12,6 +12,7 @@ publish = false
 vlog = { path = "./vlog" }
 api = { path = "./api" }
 conf = { path = "./conf" }
+service = {path = "./service"}
 
 anyhow = { version = "1.0.75", features = ["default"] }
 serde = { version = "1.0.189", features = ["default"] }

@@ -6,7 +6,7 @@ listen = "127.0.0.1:8080"
 
 [data]
 [data.db]
-dsn = "mysql://root:123456@localhost:3307/verb"
+dsn = "mysql://xx:123456@localhost:3308/verb"
 log_level = "info"
 idle_sec = 10
 life_time = 10
