@@ -5,15 +5,16 @@ pub mod flash;
 use axum::{
     extract::State,
     http::{HeaderMap, Method},
-    routing::get,
+    routing::{get, post},
     Json, Router,
 };
 
 use axum::BoxError;
+use ::chrono::Local;
 use flash::Whortleberry;
 use log::{error, info};
 use serde::{Deserialize, Serialize};
-use sqlx::{mysql::MySqlPoolOptions, types::chrono, MySql, Pool};
+use sqlx::{mysql::MySqlPoolOptions, types::chrono::{self}, MySql, Pool};
 
 use std::{collections::HashMap, net::SocketAddr, time::Duration};
 
@@ -36,9 +37,9 @@ pub async fn start(app_conf: conf::app::AppConfig) -> anyhow::Result<()> {
         .layer(limit)
         .layer(cors)
         .route("/", get(index))
+        .route("/task/start", post(start_task))
         .fallback(handler_404)
         .with_state(state);
-
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 8080));
 
@@ -88,6 +89,18 @@ pub async fn time_out_handler(err: BoxError) -> Json<Whortleberry<HashMap<String
             })
         };
     return v;
+}
+
+/// add background task
+async fn start_task(_state: State<AppState>,)->Json<Whortleberry<String>> {
+    tokio::task::spawn(async {
+        info!("start a new task.......");
+        let cry = service::task::json::ChrysaetosBit::new("_".to_owned(), 32);
+        let obj = serde_json::from_str(r###"{"foo":"baz","complex":[1,2,3]}"###).unwrap();
+        let res = cry.parse(&obj);
+        info!("res {:?}", serde_json::to_string(&res).unwrap());
+    });
+    Json(Whortleberry { err_no: 10000, err_msg: "success".to_owned(), data: Local::now().format("%Y-%m-%d %H:%M:%S.%f").to_string() })
 }
 
 #[derive(Debug, Serialize, Deserialize)]
