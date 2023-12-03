@@ -1,17 +1,14 @@
-/// logger mod
+/// log mod
 use chrono::Local;
+use env_logger::fmt::{Formatter, self};
 use log::Record;
-use std::io::Write;
 use std::io;
-use env_logger::fmt;
-use env_logger::fmt::Formatter;
+use std::io::Write;
 
-// logger formatter
 fn text_logger_formatter(buf: &mut Formatter, record: &Record) -> io::Result<()> {
     return writeln!(
         buf,
-        "{} [{}] path={}, file={}, line={}, msg={:?}",
-        // time format
+        "{} [{}] path={}, file={}, line={}, msg={}",
         Local::now().format("%Y-%m-%d %H:%M:%S.%f"),
         record.level(),
         record.module_path().unwrap(),
@@ -21,14 +18,14 @@ fn text_logger_formatter(buf: &mut Formatter, record: &Record) -> io::Result<()>
     );
 }
 
-pub fn init_log(output: fmt::Target) {
+pub fn init_log(output:fmt::Target) {
     env_logger::builder()
-        //log formatter
+        //log format
         .format(text_logger_formatter)
-        // level
-        .filter_level(log::LevelFilter::Debug)
+        // log level
+        .filter_level(log::LevelFilter::Info)
         // output
         .target(output)
-        // build logger
+        //
         .init();
 }
