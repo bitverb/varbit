@@ -34,5 +34,6 @@ tower-http = { version = "0.4.4", features = [
     "full",
 ] }
 tower = { version = "0.4.13", features = ["full"] }
-chrono = { version = "0.4.19",features = ["serde"] }
-lazy_static ={ version = "*"}
+chrono = { version = "0.4.19", features = ["serde"] }
+lazy_static = { version = "*" }
+kafka = { version = "0.10.0", features = ["default"] }
