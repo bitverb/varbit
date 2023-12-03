@@ -9,14 +9,25 @@ use axum::{
     Json, Router,
 };
 
-use axum::BoxError;
 use ::chrono::Local;
+use axum::BoxError;
 use flash::Whortleberry;
 use log::{error, info};
 use serde::{Deserialize, Serialize};
-use sqlx::{mysql::MySqlPoolOptions, types::chrono::{self}, MySql, Pool};
+use sqlx::{
+    mysql::MySqlPoolOptions,
+    types::chrono::{self},
+    MySql, Pool,
+};
 
 use std::{collections::HashMap, net::SocketAddr, time::Duration};
+
+use std::sync::{Arc, Mutex, MutexGuard};
+
+use lazy_static::lazy_static;
+lazy_static! {
+    pub static ref W_LOCK: Arc<Mutex<i64>> = Arc::new(Mutex::new(0));
+}
 
 use tower_http::{
     cors::{self, CorsLayer},
@@ -92,15 +103,22 @@ pub async fn time_out_handler(err: BoxError) -> Json<Whortleberry<HashMap<String
 }
 
 /// add background task
-async fn start_task(_state: State<AppState>,)->Json<Whortleberry<String>> {
+async fn start_task(_state: State<AppState>) -> Json<Whortleberry<(String,String)>> {
     tokio::task::spawn(async {
-        info!("start a new task.......");
+        let mut v = W_LOCK.lock().unwrap();
+        *v += 1;
+        info!("start a new task....... {v}",);
         let cry = service::task::json::ChrysaetosBit::new("_".to_owned(), 32);
         let obj = serde_json::from_str(r###"{"foo":"baz","complex":[1,2,3]}"###).unwrap();
         let res = cry.parse(&obj);
         info!("res {:?}", serde_json::to_string(&res).unwrap());
     });
-    Json(Whortleberry { err_no: 10000, err_msg: "success".to_owned(), data: Local::now().format("%Y-%m-%d %H:%M:%S.%f").to_string() })
+    let _cnt: MutexGuard<'_, i64> = W_LOCK.lock().unwrap();
+    Json(Whortleberry {
+        err_no: 10000,
+        err_msg: format!("success",).to_owned(),
+        data: (Local::now().format("%Y-%m-%d %H:%M:%S.%f").to_string(),format!("success {}", *_cnt+1)),
+    })
 }
 
 #[derive(Debug, Serialize, Deserialize)]

@@ -149,6 +149,7 @@ dependencies = [
  "axum-core",
  "chrono",
  "conf",
+ "lazy_static",
  "log",
  "serde",
  "serde_json",
