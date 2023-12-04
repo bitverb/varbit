@@ -1,6 +1,7 @@
 /// api mod
 pub mod animal;
 pub mod flash;
+pub mod kafka;
 
 use axum::{
     extract::{Query, State},
@@ -12,7 +13,7 @@ use axum::{
 use ::chrono::Local;
 use axum::BoxError;
 use flash::Whortleberry;
-use log::{debug, error, info};
+use log::{debug, error, info, warn};
 use serde::{Deserialize, Serialize};
 use sqlx::{
     mysql::MySqlPoolOptions,
@@ -36,6 +37,8 @@ use crate::flash::Task;
 lazy_static! {
     pub static ref W_LOCK: Arc<Mutex<i64>> = Arc::new(Mutex::new(0));
     pub static ref GLOBAL_TASK_POOL: Arc<Mutex<HashMap<String, Task>>> =
+        Arc::new(Mutex::new(HashMap::new()));
+    pub static ref GLOBAL_TASK_POOL_2: Arc<Mutex<HashMap<String, Task>>> =
         Arc::new(Mutex::new(HashMap::new()));
 }
 
@@ -136,6 +139,9 @@ async fn start_task(
             },
         );
     });
+    tokio::task::spawn(async {
+        kafka::consume_and_print("localhost:9092", "demo", &vec!["my-topic"]).await;
+    });
 
     let _cnt: MutexGuard<'_, i64> = W_LOCK.lock().unwrap();
     let v: MutexGuard<'_, HashMap<String, Task>> = GLOBAL_TASK_POOL.lock().unwrap();
@@ -210,76 +216,6 @@ async fn build_db(db: conf::app::DbConfig) -> Pool<MySql> {
                 "🔥 Failed to connect to the  database dsn {:?}: {:?}",
                 db.dsn, err
             );
-        }
-    }
-}
-
-use kafka::{
-    consumer::{Consumer, FetchOffset, GroupOffsetStorage, MessageSets},
-    producer::AsBytes,
-};
-
-async fn start_clean_task(task_id: String, group: String, topic: String, brokers: Vec<String>) {
-    // todo
-    {
-        let tasks = GLOBAL_TASK_POOL.lock().unwrap();
-        if (*tasks).contains_key(task_id.to_owned().as_str()) {
-            info!("task{} is already in pool", task_id);
-            let before = Duration::from_secs(
-                (*tasks)
-                    .get(task_id.to_owned().as_str())
-                    .unwrap()
-                    .last_heartbeat as u64,
-            );
-            if std::time::Instant::now().elapsed() - before < Duration::from_secs(60) {
-                return;
-            }
-        }
-    }
-    let mut conn = Consumer::from_hosts(brokers)
-        .with_topic(topic.to_owned())
-        .with_group(group.to_owned())
-        .with_fallback_offset(FetchOffset::Earliest)
-        .with_fetch_max_bytes_per_partition(1_000_000)
-        .with_offset_storage(Some(GroupOffsetStorage::Kafka))
-        .create()
-        .unwrap();
-    info!("链接 kafka 成功 {}", conn.client().client_id());
-
-    let mut cnt = 0;
-    loop {
-        let m = conn.poll();
-        if m.is_err() {
-            error!("poll {} msg error {:?}", topic, m.err());
-            thread::sleep(Duration::from_millis(500));
-
-            continue;
-        }
-
-        let msgs = m.unwrap();
-
-        if msgs.is_empty() {
-            debug!("empty msg {}", topic);
-            thread::sleep(Duration::from_millis(500));
-            continue;
-        }
-        for cmsg in msgs.iter() {
-            for msg in cmsg.messages() {
-                cnt += 1;
-                info!("msg {:?}", msg.value.as_bytes());
-            }
-        }
-        conn.commit_consumed().unwrap();
-        if cnt % 1000 == 0 {
-            {
-                let mut l = GLOBAL_TASK_POOL.lock().unwrap();
-                if (*l).contains_key(task_id.to_owned().as_str()) {
-                    let v: &Task = (*l).get(task_id.to_owned().as_str()).unwrap();
-                    let mut v = v.clone();
-                    v.last_heartbeat = 1;
-                    (*l).insert(task_id.to_owned(), v);
-                }
-            }
         }
     }
 }
