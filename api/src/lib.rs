@@ -13,7 +13,7 @@ use axum::{
 use ::chrono::Local;
 use axum::BoxError;
 use flash::Whortleberry;
-use log::{debug, error, info, warn};
+use log::{error, info};
 use serde::{Deserialize, Serialize};
 use sqlx::{
     mysql::MySqlPoolOptions,
@@ -21,7 +21,7 @@ use sqlx::{
     MySql, Pool,
 };
 
-use std::{collections::HashMap, net::SocketAddr, thread, time::Duration};
+use std::{collections::HashMap, net::SocketAddr, time::Duration};
 
 use std::sync::{Arc, Mutex, MutexGuard};
 
@@ -118,7 +118,7 @@ pub struct NewTaskRequest {
 async fn start_task(
     _state: State<AppState>,
     query: Query<NewTaskRequest>,
-) -> Json<Whortleberry<(String, String, HashMap<String, Task>)>> {
+) -> Whortleberry<(String, String, HashMap<String, Task>)> {
     info!("task id {:?}", query.task_id);
     let task_id = Arc::new(query.task_id.clone());
     let handler = tokio::task::spawn(async move {
@@ -149,7 +149,7 @@ async fn start_task(
     for ele in v.iter() {
         data.insert(ele.0.to_string(), ele.1.to_owned().clone());
     }
-    Json(Whortleberry {
+    Whortleberry {
         err_no: 10000,
         err_msg: format!("success",).to_owned(),
         data: (
@@ -157,7 +157,7 @@ async fn start_task(
             format!("success {}", *_cnt + 1),
             data,
         ),
-    })
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]

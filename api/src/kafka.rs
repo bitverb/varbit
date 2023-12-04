@@ -1,14 +1,14 @@
 use log::{info, warn};
-use rdkafka::consumer::{CommitMode, Consumer as cc, ConsumerContext, Rebalance};
+use rdkafka::client::ClientContext;
+use rdkafka::config::RDKafkaLogLevel;
+use rdkafka::consumer::{CommitMode, Consumer, ConsumerContext, Rebalance, StreamConsumer};
 use rdkafka::error::KafkaResult;
 use rdkafka::message::{Headers, Message};
 use rdkafka::topic_partition_list::TopicPartitionList;
-use rdkafka::{
-    client::ClientContext, config::RDKafkaLogLevel, consumer::StreamConsumer, ClientConfig,
-};
+use rdkafka::ClientConfig;
 
 struct CustomContext {
-    pub id:String
+    pub id: String,
 }
 
 impl ClientContext for CustomContext {}
@@ -34,7 +34,7 @@ type LoggingConsumer = StreamConsumer<CustomContext>;
 
 pub async fn consume_and_print(brokers: &str, group_id: &str, topics: &[&str]) {
     info!("ing...");
-    let context = CustomContext{id:"".to_owned()};
+    let context = CustomContext { id: "".to_owned() };
 
     let consumer: LoggingConsumer = ClientConfig::new()
         .set("group.id", group_id)
