@@ -140,7 +140,7 @@ async fn start_task(
         );
     });
     tokio::task::spawn(async {
-        kafka::consume_and_print("localhost:9092", "demo", &vec!["my-topic"]).await;
+        kafka::consume_and_print("localhost:9092", "demo-2", &vec!["my-topic"]).await;
     });
 
     let _cnt: MutexGuard<'_, i64> = W_LOCK.lock().unwrap();

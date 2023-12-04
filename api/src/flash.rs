@@ -9,13 +9,6 @@ pub struct Whortleberry<T> {
     pub data: T,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Task {
-    pub id: String,
-    pub name: String,
-    pub last_heartbeat: i64,
-}
-
 impl<T> IntoResponse for Whortleberry<T>
 where
     T: Serialize,
@@ -23,4 +16,11 @@ where
     fn into_response(self) -> Response {
         Json(self).into_response()
     }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Task {
+    pub id: String,
+    pub name: String,
+    pub last_heartbeat: i64,
 }
