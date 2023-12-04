@@ -15,7 +15,7 @@ impl ClientContext for CustomContext {}
 
 impl ConsumerContext for CustomContext {
     fn pre_rebalance(&self, rebalance: &Rebalance) {
-        info!("Pre rebalance {:?}", rebalance);
+        info!("Pre rebalance client{} {:?}", self.id.to_owned(), rebalance);
     }
 
     fn post_rebalance(&self, rebalance: &Rebalance) {
@@ -34,8 +34,10 @@ type LoggingConsumer = StreamConsumer<CustomContext>;
 
 pub async fn consume_and_print(brokers: &str, group_id: &str, topics: &[&str]) {
     info!("ing...");
-    let context = CustomContext { id: "".to_owned() };
-
+    let context = CustomContext {
+        id: mongodb::bson::oid::ObjectId::new().to_hex(),
+    };
+    let id = context.id.clone();
     let consumer: LoggingConsumer = ClientConfig::new()
         .set("group.id", group_id)
         .set("bootstrap.servers", brokers)
@@ -51,6 +53,7 @@ pub async fn consume_and_print(brokers: &str, group_id: &str, topics: &[&str]) {
     consumer
         .subscribe(&topics.to_vec())
         .expect("Can't subscribe to specified topics");
+    let cry = service::task::json::ChrysaetosBit::new("_".to_owned(), 32);
 
     loop {
         match consumer.recv().await {
@@ -73,6 +76,14 @@ pub async fn consume_and_print(brokers: &str, group_id: &str, topics: &[&str]) {
                         info!("  Header {:#?}: {:?}", header.0, header.1);
                     }
                 }
+                // parser
+                let obj: serde_json::Value = serde_json::from_str(payload).unwrap();
+                let res = cry.parse(&obj);
+                info!(
+                    "id = {:?} res = {:?}",
+                    id,
+                    serde_json::to_string(&res).unwrap()
+                );
                 consumer.commit_message(&m, CommitMode::Async).unwrap();
             }
         };

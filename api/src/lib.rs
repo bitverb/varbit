@@ -2,6 +2,7 @@
 pub mod animal;
 pub mod flash;
 pub mod kafka;
+pub mod task;
 
 use axum::{
     extract::{Query, State},
@@ -10,9 +11,9 @@ use axum::{
     Json, Router,
 };
 
-use ::chrono::Local;
 use axum::BoxError;
 use flash::Whortleberry;
+
 use log::{error, info};
 use serde::{Deserialize, Serialize};
 use sqlx::{
@@ -23,24 +24,12 @@ use sqlx::{
 
 use std::{collections::HashMap, net::SocketAddr, time::Duration};
 
-use std::sync::{Arc, Mutex, MutexGuard};
-
-use lazy_static::lazy_static;
-
 use tower_http::{
     cors::{self, CorsLayer},
     limit::RequestBodyLimitLayer,
 };
 
-use crate::flash::Task;
-
-lazy_static! {
-    pub static ref W_LOCK: Arc<Mutex<i64>> = Arc::new(Mutex::new(0));
-    pub static ref GLOBAL_TASK_POOL: Arc<Mutex<HashMap<String, Task>>> =
-        Arc::new(Mutex::new(HashMap::new()));
-    pub static ref GLOBAL_TASK_POOL_2: Arc<Mutex<HashMap<String, Task>>> =
-        Arc::new(Mutex::new(HashMap::new()));
-}
+use crate::task::TaskDetail;
 
 pub async fn start(app_conf: conf::app::AppConfig) -> anyhow::Result<()> {
     let state: AppState = AppState {
@@ -118,45 +107,46 @@ pub struct NewTaskRequest {
 async fn start_task(
     _state: State<AppState>,
     query: Query<NewTaskRequest>,
-) -> Whortleberry<(String, String, HashMap<String, Task>)> {
+) -> Whortleberry<Vec<task::Task>> {
     info!("task id {:?}", query.task_id);
-    let task_id = Arc::new(query.task_id.clone());
-    let handler = tokio::task::spawn(async move {
-        let mut task_p: MutexGuard<'_, HashMap<String, Task>> = GLOBAL_TASK_POOL.lock().unwrap();
+    let contain = {
+        task::GLOBAL_TASK_POOL
+            .lock()
+            .unwrap()
+            .contain_task(&query.task_id)
+    };
+    let group_id = format!("verb-{}", query.task_id).clone();
 
-        if (*task_p).contains_key(task_id.as_str()) {
-            info!("task is running {}", task_id);
-            return;
+    if !contain {
+        let handler = tokio::task::spawn(async move {
+            // let task = qu
+            tokio::task::spawn(async move  {
+                let group_id = group_id.as_str();
+                kafka::consume_and_print("localhost:9092", group_id, &vec!["my-topic"]).await;
+            });
+        });
+
+        {
+            let mut task_pool = task::GLOBAL_TASK_POOL.lock().unwrap();
+            let _insert = task_pool.insert_task(TaskDetail::new(
+                query.task_id.clone(),
+                "demo".to_owned(),
+                "kafka".to_owned(),
+                "{}".to_owned(),
+                "{}".to_owned(),
+                "{}".to_owned(),
+                handler,
+            ));
         }
-        // insert task
-        tokio::task::spawn(async {});
-        task_p.insert(
-            task_id.clone().to_string(),
-            Task {
-                id: task_id.to_owned().to_string(),
-                name: "foo".to_owned(),
-                last_heartbeat: 0,
-            },
-        );
-    });
-    tokio::task::spawn(async {
-        kafka::consume_and_print("localhost:9092", "demo-2", &vec!["my-topic"]).await;
-    });
-
-    let _cnt: MutexGuard<'_, i64> = W_LOCK.lock().unwrap();
-    let v: MutexGuard<'_, HashMap<String, Task>> = GLOBAL_TASK_POOL.lock().unwrap();
-    let mut data: HashMap<String, Task> = HashMap::new();
-    for ele in v.iter() {
-        data.insert(ele.0.to_string(), ele.1.to_owned().clone());
+    } else {
+        info!("task have already starting...");
     }
+
+    let list = task::GLOBAL_TASK_POOL.lock().unwrap().task_list();
     Whortleberry {
         err_no: 10000,
         err_msg: format!("success",).to_owned(),
-        data: (
-            Local::now().format("%Y-%m-%d %H:%M:%S.%f").to_string(),
-            format!("success {}", *_cnt + 1),
-            data,
-        ),
+        data: list,
     }
 }
 
