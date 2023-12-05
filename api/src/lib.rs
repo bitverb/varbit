@@ -8,7 +8,7 @@ use axum::{
     extract::{Query, State},
     http::{HeaderMap, Method},
     routing::{get, post},
-    Json, Router,
+    Router,
 };
 
 use axum::BoxError;
@@ -58,7 +58,7 @@ pub async fn start(app_conf: conf::app::AppConfig) -> anyhow::Result<()> {
     Ok(())
 }
 
-pub async fn handler_404() -> Json<Whortleberry<HashMap<String, String>>> {
+pub async fn handler_404() -> Whortleberry<HashMap<String, String>> {
     let mut data = HashMap::new();
     data.insert(
         String::from("ts"),
@@ -66,14 +66,14 @@ pub async fn handler_404() -> Json<Whortleberry<HashMap<String, String>>> {
     );
     data.insert(String::from("info"), "欢迎使用".to_owned());
 
-    Json(Whortleberry {
+    Whortleberry {
         err_no: 404,
         err_msg: "a he, 404 not found!".to_string(),
         data,
-    })
+    }
 }
 
-pub async fn time_out_handler(err: BoxError) -> Json<Whortleberry<HashMap<String, String>>> {
+pub async fn time_out_handler(err: BoxError) -> Whortleberry<HashMap<String, String>> {
     let mut data: HashMap<String, String> = HashMap::new();
     data.insert(
         String::from("ts"),
@@ -82,21 +82,19 @@ pub async fn time_out_handler(err: BoxError) -> Json<Whortleberry<HashMap<String
     data.insert(String::from("info"), "欢迎使用".to_owned());
     error!("error info {:?}", err);
     info!("error info {:?}", err);
-    let v: Json<Whortleberry<HashMap<String, String>>> =
-        if err.is::<tower::timeout::error::Elapsed>() {
-            Json(Whortleberry {
-                err_no: 404,
-                err_msg: "time out".to_string(),
-                data,
-            })
-        } else {
-            Json(Whortleberry {
-                err_no: 404,
-                err_msg: "time out".to_string(),
-                data,
-            })
-        };
-    return v;
+    if err.is::<tower::timeout::error::Elapsed>() {
+        Whortleberry {
+            err_no: 404,
+            err_msg: "time out".to_string(),
+            data,
+        }
+    } else {
+        Whortleberry {
+            err_no: 404,
+            err_msg: "time out".to_string(),
+            data,
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Default, Deserialize)]
@@ -120,7 +118,7 @@ async fn start_task(
     if !contain {
         let handler = tokio::task::spawn(async move {
             // let task = qu
-            tokio::task::spawn(async move  {
+            tokio::task::spawn(async move {
                 let group_id = group_id.as_str();
                 kafka::consume_and_print("localhost:9092", group_id, &vec!["my-topic"]).await;
             });
@@ -156,7 +154,7 @@ pub struct Data {
     value: String,
 }
 
-async fn index(state: State<AppState>, header: HeaderMap) -> Json<Whortleberry<Vec<Data>>> {
+async fn index(state: State<AppState>, header: HeaderMap) -> Whortleberry<Vec<Data>> {
     // state.conn.
     let _ = &state.conn;
     info!("query {:?}", header);
@@ -169,11 +167,11 @@ async fn index(state: State<AppState>, header: HeaderMap) -> Json<Whortleberry<V
         })
     }
     error!("");
-    Json(Whortleberry {
+    Whortleberry {
         err_no: 10000,
         err_msg: "success".to_string(),
         data: v,
-    })
+    }
 }
 
 #[derive(Clone)]
