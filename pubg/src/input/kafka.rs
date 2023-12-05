@@ -1,7 +1,6 @@
 use log::{error, info};
-use serde::{de::value, Deserialize};
+use serde::Deserialize;
 use tokio::sync::mpsc;
-use tokio_context::context;
 
 #[derive(Deserialize, Debug)]
 struct KafkaSourceConfig {
@@ -27,6 +26,7 @@ pub trait Src {
         sender: mpsc::Sender<serde_json::Value>,
     );
     fn cfg(&self) -> serde_json::Value;
+    fn src_name(&self)->String;
 }
 
 pub struct KafkaSrc {}
@@ -59,22 +59,8 @@ impl Src for KafkaSrc {
     fn cfg(&self) -> serde_json::Value {
         todo!()
     }
-}
 
-pub async fn from_kafka(mut ctx: context::Context, sender: mpsc::Sender<String>) {
-    info!("starting ....");
-    let (_tx, _rx) = mpsc::channel::<String>(12);
-    sender.send("value".to_owned()).await.unwrap();
-    loop {
-        tokio::select! {
-            _ = ctx.done()=> {
-                info!("close job");
-                return ;
-            }
-              else =>  {
-                _tx.send("233".to_owned()).await.unwrap();
-             }
-
-        }
+    fn src_name(&self)->String {
+        "kafka".to_owned()
     }
 }
