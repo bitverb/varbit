@@ -1826,6 +1826,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "pubg"
+version = "0.1.0"
+dependencies = [
+ "lazy_static",
+ "log",
+ "rdkafka",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tokio-context",
+]
+
+[[package]]
 name = "quick-error"
 version = "1.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3234,6 +3247,7 @@ dependencies = [
  "conf",
  "env_logger",
  "log",
+ "pubg",
  "serde",
  "service",
  "tokio",
