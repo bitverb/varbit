@@ -12,7 +12,7 @@ publish = false
 vlog = { path = "./vlog" }
 api = { path = "./api" }
 conf = { path = "./conf" }
-service = {path = "./service"}
+service = { path = "./service" }
 
 anyhow = { version = "1.0.75", features = ["default"] }
 serde = { version = "1.0.189", features = ["default"] }
@@ -21,3 +21,8 @@ clap = { version = "4.4.6", features = ["derive"] }
 env_logger = "0.10.0"
 log = "0.4.20"
 toml = { version = "0.8.2", features = ["default"] }
+
+[profile.release]
+# https://doc.rust-lang.org/cargo/reference/profiles.html
+opt-level = 3
+overflow-checks = true #  integer overflow checks.
