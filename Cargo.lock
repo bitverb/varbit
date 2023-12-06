@@ -152,6 +152,7 @@ dependencies = [
  "lazy_static",
  "log",
  "mongodb",
+ "pubg",
  "rdkafka",
  "serde",
  "serde_json",

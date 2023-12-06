@@ -12,6 +12,8 @@ use rdkafka::message::{Headers, Message};
 use rdkafka::topic_partition_list::TopicPartitionList;
 use rdkafka::ClientConfig;
 
+use super::Src;
+
 struct CustomContext {
     pub task_id: String,
 }
@@ -63,18 +65,6 @@ pub struct KafkaSourceMeta {
     pub task_id: String,
 }
 
-#[async_trait]
-pub trait Src {
-    async fn from_src(
-        &self,
-        mut ctx: context::Context,
-        task_id: String,
-        conf: &serde_json::Value,
-        sender: mpsc::Sender<serde_json::Value>,
-    );
-    fn cfg(&self) -> serde_json::Value;
-    fn src_name(&self) -> String;
-}
 pub struct KafkaSrc {}
 #[async_trait]
 impl Src for KafkaSrc {
@@ -85,6 +75,7 @@ impl Src for KafkaSrc {
         conf: &serde_json::Value,
         sender: mpsc::Sender<serde_json::Value>,
     ) {
+        // String::from("").to_string()
         let raw_value = serde_json::from_value(conf.clone());
         if raw_value.is_err() {
             let err: serde_json::Error = (raw_value).err().unwrap();
@@ -130,9 +121,10 @@ impl Src for KafkaSrc {
         }
         loop {
             tokio::select! {
-                _ = ctx.done() =>{
-                    return ;
-                }
+                // _ = ctx.done() =>{
+                //     error!("exit{task_id} producer ");
+                //     return ;
+                // }
                _ = async {} =>   { match consumer.recv().await {
                     Err(e) => warn!("Kafka error: {}", e),
                     Ok(m) => {
@@ -161,7 +153,7 @@ impl Src for KafkaSrc {
                             continue;
                         }
 
-                        info!("key: '{:?}', payload: '{}', topic: {}, partition: {}, offset: {}, timestamp: {:?} {:?}",
+                        debug!("key: '{:?}', payload: '{}', topic: {}, partition: {}, offset: {}, timestamp: {:?} {:?}",
                               m.key(), payload, m.topic(), m.partition(), m.offset(), m.timestamp(),payload);
 
                         if let Some(headers) = m.headers() {

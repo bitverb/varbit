@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 conf = { path = "../conf" }
 service = { path = "../service" }
+pubg = {path = "../pubg"}
 
 log = "0.4.20"
 tokio-context = "0.1.3"
