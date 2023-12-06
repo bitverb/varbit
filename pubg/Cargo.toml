@@ -13,3 +13,4 @@ tokio-context = { version = "0.1.3" }
 log = "0.4.20"
 serde = { version = "1.0.189", features = ["default"] }
 serde_json = { version = "1.0.107", features = ["default"] }
+async-trait = "0.1.74"
