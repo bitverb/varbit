@@ -21,7 +21,8 @@ impl Dst for KafkaDst {
         mut receive: mpsc::Receiver<serde_json::Value>,
     ) {
         info!(
-            " task_id:{} conf {:?}",
+            "[dst] {} task_id:{} conf {:?}",
+            self.dst_name(),
             task_id,
             serde_json::to_string(&conf.to_owned()).unwrap()
         );
