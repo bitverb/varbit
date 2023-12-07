@@ -58,7 +58,7 @@ impl Dst for KafkaDst {
             );
         }
 
-        println!("exit...consumer....")
+        info!("exit...consumer....{:?}",receive.recv().await)
     }
 
     fn cfg(&self) -> serde_json::Value {

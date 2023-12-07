@@ -47,6 +47,7 @@ pub async fn start(app_conf: conf::app::AppConfig) -> anyhow::Result<()> {
         .route("/", get(index))
         .route("/task/start", post(start_task))
         .route("/task/start2", post(start_task2))
+        .route("/task/cancel", post(cancel_task))
         .fallback(handler_404)
         .with_state(state);
 
@@ -101,6 +102,19 @@ pub async fn time_out_handler(err: BoxError) -> Whortleberry<HashMap<String, Str
 #[derive(Debug, Serialize, Default, Deserialize)]
 pub struct NewTaskRequest {
     pub task_id: String,
+}
+async fn cancel_task(
+    _state: State<AppState>,
+    query: Query<NewTaskRequest>,
+) -> Whortleberry<(String)> {
+    info!("task id {:?}", query.task_id);
+    pubg::task::remove_tasking(query.task_id.to_owned()).await;
+
+    Whortleberry {
+        err_no: 10000,
+        err_msg: format!("success",).to_owned(),
+        data: query.task_id.to_owned(),
+    }
 }
 async fn start_task2(
     _state: State<AppState>,
