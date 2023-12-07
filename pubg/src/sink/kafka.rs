@@ -30,7 +30,7 @@ impl Dst for KafkaDst {
         todo!()
     }
 
-    fn src_name(&self) -> String {
-        todo!()
+    fn dst_name(&self) -> String {
+        "kafka".to_owned()
     }
 }

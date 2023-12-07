@@ -15,5 +15,5 @@ pub trait Dst: Send + Sync {
         mut receive: mpsc::Receiver<serde_json::Value>,
     );
     fn cfg(&self) -> serde_json::Value;
-    fn src_name(&self) -> String;
+    fn dst_name(&self) -> String;
 }
