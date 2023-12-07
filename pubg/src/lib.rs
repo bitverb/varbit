@@ -18,8 +18,8 @@ pub mod sink;
 use input::kafka::KafkaSrc;
 use lazy_static::lazy_static;
 
-use crate::{input::Src, sink::kafka::KafkaDst};
 use crate::sink::Dst;
+use crate::{input::Src, sink::kafka::KafkaDst};
 
 lazy_static! {
     /// link https://users.rust-lang.org/t/how-to-add-a-trait-value-into-hashmap/6542/3
@@ -35,8 +35,4 @@ lazy_static! {
         plugin.insert(String::from("kafka"), Arc::new(Box::new(KafkaDst{})));
         Arc::new(Mutex::new(plugin))
     };
-}
-
-pub fn a(){
-    // HashMap::default();
 }

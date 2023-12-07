@@ -6,6 +6,8 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+service = {path = "../service"}
+
 lazy_static = { version = "1.4.0" }
 rdkafka = { version = "0.25", features = ["cmake-build"] }
 tokio = { version = "1.33.0", features = ["full"] }

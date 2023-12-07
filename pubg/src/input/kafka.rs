@@ -70,7 +70,6 @@ pub struct KafkaSrc {}
 impl Src for KafkaSrc {
     async fn from_src(
         &self,
-        mut ctx: context::Context,
         task_id: String,
         conf: &serde_json::Value,
         sender: mpsc::Sender<serde_json::Value>,
@@ -120,75 +119,63 @@ impl Src for KafkaSrc {
             return;
         }
         loop {
-            tokio::select! {
-                // _ = ctx.done() =>{
-                //     error!("exit{task_id} producer ");
-                //     return ;
-                // }
-               _ = async {} =>   { match consumer.recv().await {
-                    Err(e) => warn!("Kafka error: {}", e),
-                    Ok(m) => {
-                        let payload = match m.payload_view::<str>() {
-                            None => {
-                                warn!(
-                                    "task_id:{task_id} topic:{:?} receive payload",
-                                    sfc.topic.to_owned()
-                                );
-                                ""
-                            }
-
-
-                            Some(Ok(s)) => s,
-                            Some(Err(e)) => {
-                                warn!(" task_id:{task_id} topic{:?} Error while deserializing message payload: {:?}",sfc.topic.to_owned(), e);
-                                ""
-                            }
-                        };
-
-                        if payload == "" {
+            match consumer.recv().await {
+                Err(e) => warn!("Kafka error: {}", e),
+                Ok(m) => {
+                    let payload = match m.payload_view::<str>() {
+                        None => {
                             warn!(
                                 "task_id:{task_id} topic:{:?} receive payload",
                                 sfc.topic.to_owned()
                             );
-                            continue;
+                            ""
                         }
 
-                        debug!("key: '{:?}', payload: '{}', topic: {}, partition: {}, offset: {}, timestamp: {:?} {:?}",
+                        Some(Ok(s)) => s,
+                        Some(Err(e)) => {
+                            warn!(" task_id:{task_id} topic{:?} Error while deserializing message payload: {:?}",sfc.topic.to_owned(), e);
+                            ""
+                        }
+                    };
+
+                    if payload == "" {
+                        warn!(
+                            "task_id:{task_id} topic:{:?} receive payload",
+                            sfc.topic.to_owned()
+                        );
+                        continue;
+                    }
+
+                    debug!("key: '{:?}', payload: '{}', topic: {}, partition: {}, offset: {}, timestamp: {:?} {:?}",
                               m.key(), payload, m.topic(), m.partition(), m.offset(), m.timestamp(),payload);
 
-                        if let Some(headers) = m.headers() {
-                            for i in 0..headers.count() {
-                                let header = headers.get(i).unwrap();
-                                info!("  Header {:#?}: {:?}", header.0, header.1);
-                            }
+                    if let Some(headers) = m.headers() {
+                        for i in 0..headers.count() {
+                            let header = headers.get(i).unwrap();
+                            info!("  Header {:#?}: {:?}", header.0, header.1);
                         }
+                    }
 
-                        let mut value: serde_json::Value = serde_json::Value::Null;
-                        if sfc.decoder == "json".to_owned() {
-                            let value_res = serde_json::from_str(payload);
-                            if value_res.is_err() {
-                                warn!(
-                                    "task_id:{task_id} json payload{:?} decoder get error {:?}",
-                                    payload,
-                                    value_res.err()
-                                );
-                                continue;
-                            }
-                            value = value_res.unwrap();
-                        }
-                        if value == serde_json::Value::Null {
+                    let mut value: serde_json::Value = serde_json::Value::Null;
+                    if sfc.decoder == "json".to_owned() {
+                        let value_res = serde_json::from_str(payload);
+                        if value_res.is_err() {
                             warn!(
-                                "task_id:{task_id} null value continue",
+                                "task_id:{task_id} json payload{:?} decoder get error {:?}",
+                                payload,
+                                value_res.err()
                             );
                             continue;
                         }
-                        let _ = sender.send(value).await;
-                        consumer.commit_message(&m, CommitMode::Async).unwrap();
+                        value = value_res.unwrap();
                     }
+                    if value == serde_json::Value::Null {
+                        warn!("task_id:{task_id} null value continue",);
+                        continue;
+                    }
+                    let _ = sender.send(value).await;
+                    consumer.commit_message(&m, CommitMode::Async).unwrap();
                 }
-
-            },
-
             }
         }
     }

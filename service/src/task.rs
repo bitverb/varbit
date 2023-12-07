@@ -26,16 +26,20 @@ pub mod json {
 
         // fold
         fold: HashMap<String, serde_json::Value>,
+
+        // task id
+        task_id: String,
     }
 
     impl ChrysaetosBit {
-        pub fn new(sep: String, max_depth: i32) -> Self {
+        pub fn new(task_id: String, sep: String, max_depth: i32) -> Self {
             Self {
                 max_depth,
                 sep,
                 ignore: HashSet::new(),
                 default_value: HashMap::new(),
                 fold: HashMap::new(),
+                task_id: task_id.to_owned(),
             }
         }
 
@@ -53,11 +57,12 @@ pub mod json {
         /// parser json object like {}, []
         pub fn parse(&self, obj: &serde_json::Value) -> Vec<HashMap<String, serde_json::Value>> {
             debug!(
-                "parse value {:?}",
+                "task_id: {} parse value {:?}",
+                self.task_id.to_owned(),
                 serde_json::to_string(obj).unwrap_or_default()
             );
             if obj.is_null() {
-                warn!("obj is null {obj}");
+                info!("obj is null {obj}");
                 return vec![];
             }
 
@@ -82,8 +87,9 @@ pub mod json {
             curr: &HashMap<String, serde_json::Value>,
             depth: i32,
         ) -> Vec<HashMap<String, serde_json::Value>> {
-            info!(
-                "parse_list {:?}",
+            debug!(
+                "task_id {} parse_list {:?}",
+                self.task_id.to_owned(),
                 serde_json::to_string(obj).unwrap_or_default()
             );
             if depth > self.max_depth && self.max_depth != DEFAULT_MAX_DEPTH {
@@ -119,7 +125,12 @@ pub mod json {
                     }
 
                     _b @ _ => {
-                        debug!("walk key:{:?} value:{:?}", pre_key.to_owned(), oj.clone());
+                        debug!(
+                            "task_id {} walk key:{:?} value:{:?}",
+                            self.task_id.to_owned(),
+                            pre_key.to_owned(),
+                            oj.clone()
+                        );
                         let mut m: HashMap<String, serde_json::Value> = curr.clone();
                         m.insert(pre_key.clone(), oj.clone());
                         tmp_result_list.push(m);
@@ -137,14 +148,16 @@ pub mod json {
             curr: &HashMap<String, serde_json::Value>,
             depth: i32,
         ) -> Vec<HashMap<String, serde_json::Value>> {
-            info!(
-                "obj {:?} {depth}",
+            debug!(
+                "task_id {} obj {:?} {depth}",
+                self.task_id.to_owned(),
                 serde_json::to_string(obj).unwrap_or_default()
             );
             let mut tmp_result_list: Vec<HashMap<String, serde_json::Value>> = vec![curr.clone()];
             if obj.is_empty() {
-                warn!(
-                    "parse_object {} obj is empty {:?}",
+                debug!(
+                    "task_id {} parse_object {} obj is empty {:?}",
+                    self.task_id.to_owned(),
                     pre_key,
                     serde_json::to_string(obj).unwrap_or_default()
                 );
@@ -157,7 +170,8 @@ pub mod json {
             }
             for (key, value) in obj {
                 debug!(
-                    "parse_object pre_key:{pre_key},curr key:{key}, value:{}",
+                    "task_id {} parse_object pre_key:{pre_key},curr key:{key}, value:{}",
+                    self.task_id.to_owned(),
                     value.to_string()
                 );
                 match value {

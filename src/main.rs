@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use anyhow::Ok;
 use clap::Parser;
 use log::info;
@@ -24,8 +26,9 @@ struct Args {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    vlog::init_log(env_logger::Target::Stdout);
     let args: Args = Args::parse();
+    let level = log::LevelFilter::from_str(&args.level).unwrap();
+    vlog::init_log(env_logger::Target::Stdout, level);
     info!("args {:?}", args);
     let c = conf::from_path(args.conf.to_owned());
     info!("config {:?}", c);

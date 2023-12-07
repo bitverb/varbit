@@ -117,32 +117,36 @@ async fn start_task2(
         let mut _data: std::sync::MutexGuard<'_, HashMap<String, Arc<Box<dyn Src + Send + Sync>>>> =
             pubg::SRC_PLUGIN.lock().unwrap();
         let source = _data.get("kafka").unwrap();
-     
+
         let (_, mut handle) = context::Context::new();
         let (rx, mut _tx) = mpsc::channel::<serde_json::Value>(20);
 
         let ctx = handle.spawn_ctx();
         let source = source.clone();
         let id = task_id.clone();
-        let mut  _dst: std::sync::MutexGuard<'_, HashMap<String, Arc<Box<dyn Dst + Send + Sync>>>>  = pubg::DST_PLUGIN.lock().unwrap();
+        let mut _dst: std::sync::MutexGuard<'_, HashMap<String, Arc<Box<dyn Dst + Send + Sync>>>> =
+            pubg::DST_PLUGIN.lock().unwrap();
         let _dst = _dst.get("kafka").unwrap().clone();
-        tokio::task::spawn(async move  {
-    
-            _dst.to_dst(ctx, id.to_owned(), serde_json::json!({
-                "broker":"localhost:9092",
-                "topic":"my-topic",
-                "group_id":format!("verb-{}",id.to_owned()),
-                "decoder":"json",
-                "meta":{
-                 "task_id":id.to_owned(),
-                }
-             }), _tx).await;
+        tokio::task::spawn(async move {
+            _dst.to_dst(
+                id.to_owned(),
+                serde_json::json!({
+                   "broker":"localhost:9092",
+                   "topic":"my-topic",
+                   "group_id":format!("verb-{}",id.to_owned()),
+                   "encoder":"json",
+                   "meta":{
+                    "task_id":id.to_owned(),
+                   }
+                }),
+                _tx,
+            )
+            .await;
         });
         let _ctx = handle.spawn_ctx();
         tokio::task::spawn(async move {
             source
                 .from_src(
-                    _ctx,
                     task_id.to_owned(),
                     &serde_json::json!({
                        "broker":"localhost:9092",
@@ -157,21 +161,6 @@ async fn start_task2(
                 )
                 .await;
         });
-        // let s = String::from("value");
-        // s.to_string();
-        // let (_, mut handle) = context::Context::new();
-        // let (rx, _tx) = mpsc::channel::<serde_json::Value>(20);
-        // let ctx = handle.spawn_ctx();
-        // // tokio::task::spawn(async move {
-        // let () = source
-        //     .from_src(
-        //         ctx,
-        //         task_id.to_owned(),
-        //         &serde_json::to_value({}).unwrap(),
-        //         rx,
-        //     )
-        //     .await;
-        // // });
     }
 
     // source.from_src(ctx, task_id, conf, sender)
