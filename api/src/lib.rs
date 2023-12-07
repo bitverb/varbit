@@ -26,7 +26,6 @@ use sqlx::{
 use std::{collections::HashMap, net::SocketAddr, sync::Arc, time::Duration};
 
 use tokio::sync::mpsc;
-use tokio_context::context;
 
 use tower_http::{
     cors::{self, CorsLayer},
@@ -118,10 +117,8 @@ async fn start_task2(
             pubg::SRC_PLUGIN.lock().unwrap();
         let source = _data.get("kafka").unwrap();
 
-        let (_, mut handle) = context::Context::new();
         let (rx, mut _tx) = mpsc::channel::<serde_json::Value>(20);
 
-        let ctx = handle.spawn_ctx();
         let source = source.clone();
         let id = task_id.clone();
         let mut _dst: std::sync::MutexGuard<'_, HashMap<String, Arc<Box<dyn Dst + Send + Sync>>>> =
@@ -143,7 +140,6 @@ async fn start_task2(
             )
             .await;
         });
-        let _ctx = handle.spawn_ctx();
         tokio::task::spawn(async move {
             source
                 .from_src(

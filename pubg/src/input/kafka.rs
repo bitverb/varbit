@@ -2,7 +2,6 @@ use async_trait::async_trait;
 use log::{debug, error, info, warn};
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc;
-use tokio_context::context;
 
 use rdkafka::client::ClientContext;
 use rdkafka::config::RDKafkaLogLevel;
