@@ -5,7 +5,10 @@ use std::{
 
 use lazy_static::lazy_static;
 use log::info;
+use tokio::sync::mpsc;
 use tokio_context::context;
+
+use crate::{input::Src, sink::Dst, DST_PLUGIN, SRC_PLUGIN};
 
 pub struct Tasking {
     pub handle: context::Handle,
@@ -20,16 +23,43 @@ lazy_static! {
 
 }
 
-pub async fn dispatch_tasking(task_id: String) -> bool {
+pub async fn dispatch_tasking(
+    task_id: String,
+    src_type: String,
+    src_conf: &serde_json::Value,
+    dst_type: String,
+    dst_conf: &serde_json::Value,
+) -> bool {
     let mut lock = GLOBAL_TASKING.lock().unwrap();
     if lock.contains_key(task_id.to_owned().as_str()) {
         return false;
     }
 
+    let (rx, mut _tx) = mpsc::channel::<serde_json::Value>(20);
+
+    let mut _dst: std::sync::MutexGuard<'_, HashMap<String, Arc<Box<dyn Dst + Send + Sync>>>> =
+        DST_PLUGIN.lock().unwrap();
+    let _dst = _dst.get(dst_type.to_owned().as_str()).unwrap().clone();
+    let src_conf = src_conf.clone();
+    let task_id_2_dst = task_id.clone();
+    let dst_handler = tokio::task::spawn(async move {
+        _dst.to_dst(task_id_2_dst.clone(), src_conf.clone(), _tx)
+            .await;
+    });
+
+    let mut _data: std::sync::MutexGuard<'_, HashMap<String, Arc<Box<dyn Src + Send + Sync>>>> =
+        SRC_PLUGIN.lock().unwrap();
+    let source = _data.get(src_type.to_owned().as_str()).unwrap();
+    let source = source.clone();
+    let task_id_2_src = task_id.clone();
+    let dst_conf = dst_conf.clone();
+    let src_handler = tokio::task::spawn(async move {
+        source
+            .from_src(task_id_2_src.clone(), &dst_conf.clone(), rx)
+            .await;
+    });
     let (_, mut handle) = context::Context::new();
     let mut ctx = handle.spawn_ctx();
-    let dst_handler = tokio::task::spawn(async {});
-    let src_handler = tokio::task::spawn(async {});
     let task_id_cp = task_id.clone();
     tokio::task::spawn(async move {
         tokio::select! {

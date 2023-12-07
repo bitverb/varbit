@@ -15,7 +15,6 @@ use axum::BoxError;
 use flash::Whortleberry;
 
 use log::{error, info};
-use pubg::{input::Src, sink::Dst};
 use serde::{Deserialize, Serialize};
 use sqlx::{
     mysql::MySqlPoolOptions,
@@ -23,9 +22,7 @@ use sqlx::{
     MySql, Pool,
 };
 
-use std::{collections::HashMap, net::SocketAddr, sync::Arc, time::Duration};
-
-use tokio::sync::mpsc;
+use std::{collections::HashMap, net::SocketAddr, time::Duration};
 
 use tower_http::{
     cors::{self, CorsLayer},
@@ -108,63 +105,37 @@ pub struct NewTaskRequest {
 async fn start_task2(
     _state: State<AppState>,
     query: Query<NewTaskRequest>,
-) -> Whortleberry<String> {
+) -> Whortleberry<(String, bool)> {
     info!("task id {:?}", query.task_id);
-    let task_id = query.task_id.clone();
+    let ok = pubg::task::dispatch_tasking(
+        query.task_id.clone(),
+        "kafka".to_owned(),
+        &serde_json::json!({
+           "broker":"localhost:9092",
+           "topic":"my-topic",
+           "group_id":format!("verb-{}",query.task_id.to_owned()),
+           "encoder":"json",
+           "meta":{
+            "task_id":query.task_id.to_owned(),
+           }
+        }),
+        "kafka".to_owned(),
+        &serde_json::json!({
+           "broker":"localhost:9092",
+           "topic":"my-topic",
+           "group_id":format!("verb-{}",query.task_id.to_owned()),
+           "decoder":"json",
+           "meta":{
+            "task_id":query.task_id.to_owned(),
+           }
+        }),
+    )
+    .await;
 
-    {
-        let mut _data: std::sync::MutexGuard<'_, HashMap<String, Arc<Box<dyn Src + Send + Sync>>>> =
-            pubg::SRC_PLUGIN.lock().unwrap();
-        let source = _data.get("kafka").unwrap();
-
-        let (rx, mut _tx) = mpsc::channel::<serde_json::Value>(20);
-
-        let source = source.clone();
-        let id = task_id.clone();
-        let mut _dst: std::sync::MutexGuard<'_, HashMap<String, Arc<Box<dyn Dst + Send + Sync>>>> =
-            pubg::DST_PLUGIN.lock().unwrap();
-        let _dst = _dst.get("kafka").unwrap().clone();
-        tokio::task::spawn(async move {
-            _dst.to_dst(
-                id.to_owned(),
-                serde_json::json!({
-                   "broker":"localhost:9092",
-                   "topic":"my-topic",
-                   "group_id":format!("verb-{}",id.to_owned()),
-                   "encoder":"json",
-                   "meta":{
-                    "task_id":id.to_owned(),
-                   }
-                }),
-                _tx,
-            )
-            .await;
-        });
-        tokio::task::spawn(async move {
-            source
-                .from_src(
-                    task_id.to_owned(),
-                    &serde_json::json!({
-                       "broker":"localhost:9092",
-                       "topic":"my-topic",
-                       "group_id":format!("verb-{}",task_id.to_owned()),
-                       "decoder":"json",
-                       "meta":{
-                        "task_id":task_id.to_owned(),
-                       }
-                    }),
-                    rx,
-                )
-                .await;
-        });
-    }
-
-    // source.from_src(ctx, task_id, conf, sender)
-    // }
     Whortleberry {
         err_no: 10000,
         err_msg: format!("success",).to_owned(),
-        data: query.task_id.to_owned(),
+        data: (query.task_id.to_owned(), ok),
     }
 }
 /// add background task
