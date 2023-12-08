@@ -84,10 +84,11 @@ pub async fn dispatch_tasking(
     return true;
 }
 
-pub async fn remove_tasking(task_id: String) {
+pub async fn remove_tasking(task_id: String)->bool {
     let mut lock = GLOBAL_TASKING.lock().unwrap();
     if !lock.contains_key(task_id.to_owned().as_str()) {
-        return;
+        return false;
     }
     lock.remove(task_id.to_owned().as_str());
+    return true;
 }
