@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-service = {path = "../service"}
+service = { path = "../service" }
 
 lazy_static = { version = "1.4.0" }
 rdkafka = { version = "0.25", features = ["cmake-build"] }
@@ -16,3 +16,4 @@ log = { version = "0.4.20" }
 serde = { version = "1.0.189", features = ["default"] }
 serde_json = { version = "1.0.107", features = ["default"] }
 async-trait = { version = "0.1.74" }
+uuid = { version = "1.6.1", features = ["v4", "fast-rng", "macro-diagnostics"] }

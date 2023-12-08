@@ -29,7 +29,6 @@ use tower_http::{
     limit::RequestBodyLimitLayer,
 };
 
-use crate::task::TaskDetail;
 
 pub async fn start(app_conf: conf::app::AppConfig) -> anyhow::Result<()> {
     let state: AppState = AppState {
@@ -45,7 +44,6 @@ pub async fn start(app_conf: conf::app::AppConfig) -> anyhow::Result<()> {
         .layer(limit)
         .layer(cors)
         .route("/", get(index))
-        .route("/task/start", post(start_task))
         .route("/task/start2", post(start_task2))
         .route("/task/cancel", post(cancel_task))
         .fallback(handler_404)
@@ -106,14 +104,19 @@ pub struct NewTaskRequest {
 async fn cancel_task(
     _state: State<AppState>,
     query: Query<NewTaskRequest>,
-) -> Whortleberry<(String)> {
-    info!("task id {:?}", query.task_id);
-    pubg::task::remove_tasking(query.task_id.to_owned()).await;
+) -> Whortleberry<String> {
+    let remove_task = pubg::task::remove_tasking(query.task_id.to_owned()).await;
+    // debug is close
+    info!("task id {:?} close task {:?}", query.task_id, remove_task);
 
     Whortleberry {
         err_no: 10000,
         err_msg: format!("success",).to_owned(),
-        data: query.task_id.to_owned(),
+        data: format!(
+            "task_id:{} remove {:?}",
+            query.task_id.to_owned(),
+            remove_task
+        ),
     }
 }
 async fn start_task2(
@@ -152,52 +155,7 @@ async fn start_task2(
         data: (query.task_id.to_owned(), ok),
     }
 }
-/// add background task
-async fn start_task(
-    _state: State<AppState>,
-    query: Query<NewTaskRequest>,
-) -> Whortleberry<Vec<task::Task>> {
-    info!("task id {:?}", query.task_id);
-    let contain = {
-        task::GLOBAL_TASK_POOL
-            .lock()
-            .unwrap()
-            .contain_task(&query.task_id)
-    };
-    let group_id = format!("verb-{}", query.task_id).clone();
 
-    if !contain {
-        let handler = tokio::task::spawn(async move {
-            // let task = qu
-            tokio::task::spawn(async move {
-                let group_id = group_id.as_str();
-                kafka::consume_and_print("localhost:9092", group_id, &vec!["my-topic"]).await;
-            });
-        });
-
-        {
-            let mut task_pool = task::GLOBAL_TASK_POOL.lock().unwrap();
-            let _insert = task_pool.insert_task(TaskDetail::new(
-                query.task_id.clone(),
-                "demo".to_owned(),
-                "kafka".to_owned(),
-                "{}".to_owned(),
-                "{}".to_owned(),
-                "{}".to_owned(),
-                handler,
-            ));
-        }
-    } else {
-        info!("task have already starting...");
-    }
-
-    let list = task::GLOBAL_TASK_POOL.lock().unwrap().task_list();
-    Whortleberry {
-        err_no: 10000,
-        err_msg: format!("success",).to_owned(),
-        data: list,
-    }
-}
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Data {
