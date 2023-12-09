@@ -1,4 +1,5 @@
 use std::time::Instant;
+use validator::Validate;
 
 use serde::{Deserialize, Serialize};
 
@@ -51,9 +52,10 @@ pub struct Task {
     pub tasking_cfg: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize, Clone, Validate)]
 pub struct NewTaskRequest {
     // task name
+    #[validate(length(min = 1, message = "Can not be empty"))]
     pub name: String,
     // src type like kafka
     pub src_type: String,

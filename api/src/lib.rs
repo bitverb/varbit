@@ -8,7 +8,7 @@ use axum::{
     extract::{Query, State},
     http::{HeaderMap, Method},
     routing::{get, post},
-    Router,
+    Json, Router,
 };
 
 use axum::BoxError;
@@ -21,6 +21,7 @@ use sqlx::{
     types::chrono::{self},
     MySql, Pool,
 };
+use task::NewTaskRequest;
 
 use std::{collections::HashMap, net::SocketAddr, time::Duration};
 
@@ -28,7 +29,6 @@ use tower_http::{
     cors::{self, CorsLayer},
     limit::RequestBodyLimitLayer,
 };
-
 
 pub async fn start(app_conf: conf::app::AppConfig) -> anyhow::Result<()> {
     let state: AppState = AppState {
@@ -46,6 +46,7 @@ pub async fn start(app_conf: conf::app::AppConfig) -> anyhow::Result<()> {
         .route("/", get(index))
         .route("/task/start2", post(start_task2))
         .route("/task/cancel", post(cancel_task))
+        .route("/task/new", post(create_task))
         .fallback(handler_404)
         .with_state(state);
 
@@ -97,14 +98,16 @@ pub async fn time_out_handler(err: BoxError) -> Whortleberry<HashMap<String, Str
     }
 }
 
+// #[derive(Debug, Serialize, Default, Deserialize)]
+// pub struct NewTaskRequest {
+//     pub task_id: String,
+// }
+
 #[derive(Debug, Serialize, Default, Deserialize)]
-pub struct NewTaskRequest {
+pub struct CancelTaskReq {
     pub task_id: String,
 }
-async fn cancel_task(
-    _state: State<AppState>,
-    query: Query<NewTaskRequest>,
-) -> Whortleberry<String> {
+async fn cancel_task(_state: State<AppState>, query: Query<CancelTaskReq>) -> Whortleberry<String> {
     let remove_task = pubg::task::remove_tasking(query.task_id.to_owned()).await;
     // debug is close
     info!("task id {:?} close task {:?}", query.task_id, remove_task);
@@ -119,9 +122,14 @@ async fn cancel_task(
         ),
     }
 }
+
+#[derive(Debug, Serialize, Default, Deserialize)]
+pub struct NewTaskRequest2 {
+    pub task_id: String,
+}
 async fn start_task2(
     _state: State<AppState>,
-    query: Query<NewTaskRequest>,
+    query: Query<NewTaskRequest2>,
 ) -> Whortleberry<(String, bool)> {
     info!("task id {:?}", query.task_id);
     let ok = pubg::task::dispatch_tasking(
@@ -155,7 +163,6 @@ async fn start_task2(
         data: (query.task_id.to_owned(), ok),
     }
 }
-
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Data {
@@ -214,5 +221,41 @@ async fn build_db(db: conf::app::DbConfig) -> Pool<MySql> {
                 db.dsn, err
             );
         }
+    }
+}
+
+async fn create_task(
+    state: State<AppState>,
+    Json(req): Json<NewTaskRequest>,
+) -> Whortleberry<Option<NewTaskRequest>> {
+    info!("create task req {:?}", req);
+    let src_cfg: Result<serde_json::Value, serde_json::Error> =
+        serde_json::from_str(&req.src_cfg.to_owned().as_str());
+    if src_cfg.is_err() {
+        let err_msg = format!(
+            "src_cfg error expected json format data but {:?} value is {:?}",
+            src_cfg.err(),
+            req.src_cfg
+        );
+        return Whortleberry {
+            err_msg: err_msg,
+            err_no: 400,
+            data: None,
+        };
+    }
+
+    let src_cfg_val: serde_json::Value = match req.src_type.as_str() {
+        "kafka" => serde_json::from_str(req.src_cfg.to_owned().as_str()).unwrap(),
+        _a @ _ => {
+            info!("default patch {}", _a);
+            serde_json::from_str("{}").unwrap()
+        }
+    };
+    info!("src_cfg {:?}", src_cfg_val.to_owned().to_string());
+
+    Whortleberry {
+        err_msg: "success".to_owned(),
+        err_no: 10_000,
+        data: Some(req),
     }
 }
