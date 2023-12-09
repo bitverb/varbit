@@ -1,8 +1,12 @@
-use std::time::Instant;
+use std::{
+    alloc::System,
+    time::{Instant, SystemTime, UNIX_EPOCH},
+};
+use chrono::Duration;
 use validator::Validate;
 
 use serde::{Deserialize, Serialize};
-
+use sqlx::FromRow;
 pub enum TaskStatus {
     // task create but not starting
     Created,
@@ -24,7 +28,7 @@ impl TaskStatus {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Default)]
+#[derive(Clone, Debug, Serialize, Default, FromRow)]
 pub struct Task {
     // task id
     pub id: String,
@@ -77,8 +81,14 @@ impl Task {
             src_type: req.src_type.clone(),
             dst_type: req.dst_type.clone(),
             status: TaskStatus::Created.get_status(),
-            created_at: 0,
-            updated_at: 0,
+            created_at: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs() as i64,
+            updated_at: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs() as i64,
             deleted_at: 0,
             src_cfg: req.src_cfg.clone(),
             dst_cfg: req.dst_cfg.clone(),

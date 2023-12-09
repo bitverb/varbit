@@ -229,6 +229,7 @@ async fn create_task(
     Json(req): Json<NewTaskRequest>,
 ) -> Whortleberry<Option<NewTaskRequest>> {
     info!("create task req {:?}", req);
+
     let src_cfg: Result<serde_json::Value, serde_json::Error> =
         serde_json::from_str(&req.src_cfg.to_owned().as_str());
     if src_cfg.is_err() {
@@ -251,8 +252,44 @@ async fn create_task(
             serde_json::from_str("{}").unwrap()
         }
     };
-    info!("src_cfg {:?}", src_cfg_val.to_owned().to_string());
+    let t = task::Task::from_task_detail(&req);
+    // let result = sqlx::query_with::<_, task::Task>("INSERT INTO task (name) VALUES (?)", t)
+    // .execute(&mut state.conn).await;
+    info!("task is {:?}", t);
 
+    info!("src_cfg {:?}", src_cfg_val.to_owned().to_string());
+    // sqlx::query_with("INSERT INTO task(name)", &t).bind(&  state.conn);
+
+    let v = sqlx::query(
+        r###"INSERT INTO task (
+        id,
+        name,
+        last_heartbeat,
+        src_type,
+        dst_type,
+        src_cfg,
+        dst_cfg,
+        status,
+        created_at,
+        updated_at,
+        deleted_at,
+        tasking_cfg) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)"###,
+    )
+    .bind(t.id)
+    .bind(t.name)
+    .bind(t.last_heartbeat)
+    .bind(t.src_type)
+    .bind(t.dst_type)
+    .bind(t.src_cfg)
+    .bind(t.dst_cfg)
+    .bind(t.status)
+    .bind(t.created_at)
+    .bind(t.updated_at)
+    .bind(t.deleted_at)
+    .bind(t.tasking_cfg)
+    .execute(&state.conn)
+    .await;
+    info!("result {:?}", v.err());
     Whortleberry {
         err_msg: "success".to_owned(),
         err_no: 10_000,
