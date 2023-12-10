@@ -8,6 +8,8 @@ use rdkafka::config::ClientConfig;
 use rdkafka::message::OwnedHeaders;
 use rdkafka::producer::{FutureProducer, FutureRecord};
 
+use crate::core::Msg;
+
 use super::Dst;
 
 pub struct KafkaDst {}
@@ -18,7 +20,7 @@ impl Dst for KafkaDst {
         &self,
         task_id: String,
         conf: serde_json::Value,
-        mut receive: mpsc::Receiver<serde_json::Value>,
+        mut receive: mpsc::Receiver<Msg>,
     ) {
         info!(
             "[dst] {} task_id:{} conf {:?}",
@@ -48,13 +50,14 @@ impl Dst for KafkaDst {
         let cry = service::task::json::ChrysaetosBit::new(task_id.clone(), "_".to_owned(), 32);
 
         while let Some(msg) = receive.recv().await {
-            let res = cry.parse(&msg);
+            let res = cry.parse(&msg.g_id,&msg.value);
 
             debug!(
-                "[dst] {} task_id:{} receive  data {:?} res{:?}",
+                "[dst] {} task_id:{} g_id:{} receive  data {:?} res{:?}",
                 self.dst_name(),
                 task_id,
-                msg.to_string(),
+                msg.g_id,
+                msg.value.to_string(),
                 serde_json::to_string(&serde_json::json!(res)).unwrap(),
             );
         }

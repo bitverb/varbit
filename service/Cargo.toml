@@ -8,4 +8,4 @@ edition = "2021"
 [dependencies]
 serde = { version = "1.0.189", features = ["derive"] }
 serde_json = { version = "1.0.107", features = ["default"] }
-log = "0.4.20"
+log = { version = "0.4.20" }

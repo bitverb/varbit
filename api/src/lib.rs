@@ -289,7 +289,7 @@ async fn create_task(
     .bind(t.tasking_cfg)
     .execute(&state.conn)
     .await;
-    info!("result {:?}", v.err());
+    info!("result {:?} ", &v.err());
     Whortleberry {
         err_msg: "success".to_owned(),
         err_no: 10_000,

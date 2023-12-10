@@ -10,6 +10,9 @@ use rdkafka::error::KafkaResult;
 use rdkafka::message::{Headers, Message};
 use rdkafka::topic_partition_list::TopicPartitionList;
 use rdkafka::ClientConfig;
+use uuid::Uuid;
+
+use crate::core::Msg;
 
 use super::Src;
 
@@ -67,12 +70,7 @@ pub struct KafkaSourceMeta {
 pub struct KafkaSrc {}
 #[async_trait]
 impl Src for KafkaSrc {
-    async fn from_src(
-        &self,
-        task_id: String,
-        conf: &serde_json::Value,
-        sender: mpsc::Sender<serde_json::Value>,
-    ) {
+    async fn from_src(&self, task_id: String, conf: &serde_json::Value, sender: mpsc::Sender<Msg>) {
         // String::from("").to_string()
         let raw_value = serde_json::from_value(conf.clone());
         if raw_value.is_err() {
@@ -145,6 +143,12 @@ impl Src for KafkaSrc {
                         continue;
                     }
 
+                    // get key id
+                    let g_id = if !m.key_len() == 0 {
+                        format!("{:?}", m.key())
+                    } else {
+                        Uuid::new_v4().to_string()
+                    };
                     debug!("key: '{:?}', payload: '{}', topic: {}, partition: {}, offset: {}, timestamp: {:?} {:?}",
                               m.key(), payload, m.topic(), m.partition(), m.offset(), m.timestamp(),payload);
 
@@ -172,7 +176,10 @@ impl Src for KafkaSrc {
                         warn!("task_id:{task_id} null value continue",);
                         continue;
                     }
-                    let _ = sender.send(value).await;
+
+                    let msg = Msg::new(g_id, value);
+
+                    let _ = sender.send(msg).await;
                     consumer.commit_message(&m, CommitMode::Async).unwrap();
                 }
             }

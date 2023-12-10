@@ -8,7 +8,7 @@ use log::info;
 use tokio::sync::mpsc;
 use tokio_context::context;
 
-use crate::{input::Src, sink::Dst, DST_PLUGIN, SRC_PLUGIN};
+use crate::{core::Msg, input::Src, sink::Dst, DST_PLUGIN, SRC_PLUGIN};
 
 pub struct Tasking {
     pub handle: context::Handle,
@@ -35,7 +35,7 @@ pub async fn dispatch_tasking(
         return false;
     }
 
-    let (rx, mut _tx) = mpsc::channel::<serde_json::Value>(20);
+    let (rx, mut _tx) = mpsc::channel::<Msg>(20);
 
     let mut _dst: std::sync::MutexGuard<'_, HashMap<String, Arc<Box<dyn Dst + Send + Sync>>>> =
         DST_PLUGIN.lock().unwrap();
@@ -84,7 +84,7 @@ pub async fn dispatch_tasking(
     return true;
 }
 
-pub async fn remove_tasking(task_id: String)->bool {
+pub async fn remove_tasking(task_id: String) -> bool {
     let mut lock = GLOBAL_TASKING.lock().unwrap();
     if !lock.contains_key(task_id.to_owned().as_str()) {
         return false;

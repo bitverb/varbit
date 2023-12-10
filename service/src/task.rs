@@ -5,6 +5,8 @@ pub mod json {
     use serde::{Deserialize, Serialize};
     use std::collections::{HashMap, HashSet};
 
+    static MOD_NAME: &str = "json parser";
+
     use crate::task::json::data_type::{ARRAY, BOOLEAN, NULL, NUMBER, OBJECT, STRING};
 
     const DEFAULT_MAX_DEPTH: i32 = -1;
@@ -44,6 +46,9 @@ pub mod json {
         }
 
         fn format_key(&self, pre_key: String, key: &String, depth: i32) -> String {
+            if pre_key.is_empty() && key.is_empty() {
+                return String::new();
+            }
             if depth == 0 {
                 return key.clone();
             }
@@ -51,30 +56,37 @@ pub mod json {
         }
 
         fn get_sep(&self) -> &String {
-            // "".to_uppercase()
             &self.sep
         }
         /// parser json object like {}, []
-        pub fn parse(&self, obj: &serde_json::Value) -> Vec<HashMap<String, serde_json::Value>> {
+        pub fn parse(
+            &self,
+            g_id: &String,
+            obj: &serde_json::Value,
+        ) -> Vec<HashMap<String, serde_json::Value>> {
             debug!(
-                "task_id: {} parse value {:?}",
+                "[{MOD_NAME}] task_id: {} g_id:{} parse value {:?}",
                 self.task_id.to_owned(),
+                g_id,
                 serde_json::to_string(obj).unwrap_or_default()
             );
             if obj.is_null() {
-                info!("obj is null {obj}");
+                info!(
+                    "[{MOD_NAME}] task_id:{} g_id:{} obj is null {obj}",
+                    self.task_id, g_id
+                );
                 return vec![];
             }
 
             match obj {
                 serde_json::Value::Array(_v) => {
-                    self.parse_list(_v, &String::new(), &HashMap::new(), ZERO_DEPTH)
+                    self.parse_list(g_id, _v, &String::new(), &HashMap::new(), ZERO_DEPTH)
                 }
                 serde_json::Value::Object(_v) => {
-                    self.parse_object(_v, &String::new(), &HashMap::new(), ZERO_DEPTH)
+                    self.parse_object(g_id, _v, &String::new(), &HashMap::new(), ZERO_DEPTH)
                 }
                 _b @ _ => {
-                    warn!("parse root node maybe array or object {:#?}", obj);
+                    warn!("[{MOD_NAME}] task_id:{} g_id:{g_id} parse root node maybe array or object {:#?}",self.task_id, obj);
                     vec![]
                 }
             }
@@ -82,19 +94,22 @@ pub mod json {
 
         fn parse_list(
             &self,
+            g_id: &String,
             obj: &Vec<serde_json::Value>,
             pre_key: &String,
             curr: &HashMap<String, serde_json::Value>,
             depth: i32,
         ) -> Vec<HashMap<String, serde_json::Value>> {
             debug!(
-                "task_id {} parse_list {:?}",
+                "[{MOD_NAME}] task_id {} parse_list {:?}",
                 self.task_id.to_owned(),
                 serde_json::to_string(obj).unwrap_or_default()
             );
             if depth > self.max_depth && self.max_depth != DEFAULT_MAX_DEPTH {
                 warn!(
-                    "parse list depth({depth}) is over max_depth ({})",
+                    "[{MOD_NAME}] task_id {} g_id:{} parse list depth({depth}) is over max_depth ({})",
+                    self.task_id,
+                    g_id,
                     self.max_depth
                 );
                 return vec![];
@@ -110,12 +125,13 @@ pub mod json {
                 match oj {
                     serde_json::Value::Object(_obj) => {
                         let mut result: Vec<HashMap<String, serde_json::Value>> =
-                            self.parse_object(&_obj, pre_key, curr, depth + 1);
+                            self.parse_object(g_id, &_obj, pre_key, curr, depth + 1);
                         tmp_result_list.append(&mut result);
                     }
                     serde_json::Value::Array(_list) => {
                         // parser list
                         let mut result: Vec<HashMap<String, serde_json::Value>> = self.parse_list(
+                            g_id,
                             _list,
                             &self.format_key(pre_key.clone(), self.get_sep(), depth),
                             curr,
@@ -126,7 +142,7 @@ pub mod json {
 
                     _b @ _ => {
                         debug!(
-                            "task_id {} walk key:{:?} value:{:?}",
+                            "[{MOD_NAME}] task_id {} g_id {g_id} walk key:{:?} value:{:?}",
                             self.task_id.to_owned(),
                             pre_key.to_owned(),
                             oj.clone()
@@ -143,21 +159,24 @@ pub mod json {
 
         fn parse_object(
             &self,
+            g_id: &String,
             obj: &serde_json::Map<String, serde_json::Value>,
             pre_key: &String,
             curr: &HashMap<String, serde_json::Value>,
             depth: i32,
         ) -> Vec<HashMap<String, serde_json::Value>> {
             debug!(
-                "task_id {} obj {:?} {depth}",
+                "[{MOD_NAME}] task_id {} g_id:{} obj {:?} {depth}",
                 self.task_id.to_owned(),
+                g_id,
                 serde_json::to_string(obj).unwrap_or_default()
             );
             let mut tmp_result_list: Vec<HashMap<String, serde_json::Value>> = vec![curr.clone()];
             if obj.is_empty() {
                 debug!(
-                    "task_id {} parse_object {} obj is empty {:?}",
+                    "[{MOD_NAME}] task_id {} g_id:{} parse_object {} obj is empty {:?}",
                     self.task_id.to_owned(),
+                    g_id,
                     pre_key,
                     serde_json::to_string(obj).unwrap_or_default()
                 );
@@ -170,8 +189,9 @@ pub mod json {
             }
             for (key, value) in obj {
                 debug!(
-                    "task_id {} parse_object pre_key:{pre_key},curr key:{key}, value:{}",
+                    "[{MOD_NAME}] task_id {}, g_id{} parse_object pre_key:{pre_key},curr key:{key}, value:{}",
                     self.task_id.to_owned(),
+                    g_id,
                     value.to_string()
                 );
                 match value {
@@ -180,6 +200,7 @@ pub mod json {
                         for x in &tmp_result_list {
                             let mut result: Vec<HashMap<String, serde_json::Value>> = self
                                 .parse_object(
+                                    g_id,
                                     _obj,
                                     &self.format_key(pre_key.clone(), key, depth),
                                     x,
@@ -194,6 +215,7 @@ pub mod json {
                         for x in &tmp_result_list {
                             let mut result: Vec<HashMap<String, serde_json::Value>> = self
                                 .parse_list(
+                                    g_id,
                                     _list,
                                     &self.format_key(pre_key.clone(), key, depth),
                                     x,
@@ -422,8 +444,9 @@ pub mod json {
 
         #[test]
         fn it_works() {
-            let cry = ChrysaetosBit::new("_".to_owned().to_string(), 10);
+            let cry = ChrysaetosBit::new("test_task".to_owned(), "_".to_owned().to_string(), 10);
             let res: Vec<HashMap<String, serde_json::Value>> = cry.parse(
+                &"test".to_owned(),
                 &serde_json::from_str(
                     r###"{
             "name":"ace"
@@ -435,8 +458,10 @@ pub mod json {
             );
             assert_eq!(res.len(), 1);
 
-            let res: Vec<HashMap<String, serde_json::Value>> =
-                cry.parse(&serde_json::from_str(r###"[true,true]"###.to_owned().as_str()).unwrap());
+            let res: Vec<HashMap<String, serde_json::Value>> = cry.parse(
+                &"test".to_owned(),
+                &serde_json::from_str(r###"[true,true]"###.to_owned().as_str()).unwrap(),
+            );
             assert_eq!(res.len(), 2);
             println!("res {:?}", json!(res));
         }

@@ -53,7 +53,7 @@ pub async fn consume_and_print(brokers: &str, group_id: &str, topics: &[&str]) {
     consumer
         .subscribe(&topics.to_vec())
         .expect("Can't subscribe to specified topics");
-    let cry = service::task::json::ChrysaetosBit::new("debug".to_owned(),"_".to_owned(), 32);
+    let cry = service::task::json::ChrysaetosBit::new("debug".to_owned(), "_".to_owned(), 32);
 
     loop {
         match consumer.recv().await {
@@ -78,7 +78,7 @@ pub async fn consume_and_print(brokers: &str, group_id: &str, topics: &[&str]) {
                 }
                 // parser
                 let obj: serde_json::Value = serde_json::from_str(payload).unwrap();
-                let res = cry.parse(&obj);
+                let res = cry.parse(&"test".to_owned(), &obj);
                 info!(
                     "id = {:?} res = {:?}",
                     id,

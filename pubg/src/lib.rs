@@ -15,6 +15,7 @@ use std::{
 pub mod input;
 pub mod sink;
 pub mod task;
+pub mod core;
 
 use input::kafka::KafkaSrc;
 use lazy_static::lazy_static;

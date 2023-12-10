@@ -19,8 +19,8 @@ anyhow = { version = "1.0.75", features = ["default"] }
 serde = { version = "1.0.189", features = ["default"] }
 tokio = { version = "1.33.0", features = ["full"] }
 clap = { version = "4.4.6", features = ["derive"] }
-env_logger = "0.10.0"
-log = "0.4.20"
+env_logger = { version = "0.10.0" }
+log = { version = "0.4.20" }
 toml = { version = "0.8.2", features = ["default"] }
 
 [profile.release]

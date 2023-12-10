@@ -12,5 +12,5 @@ CREATE TABLE IF NOT EXISTS verb.task (
     status tinyint NOT NULL DEFAULT '0' COMMENT "task status has 0:",
     created_at bigint NOT NULL DEFAULT '0' COMMENT 'created timestamp',
     updated_at bigint NOT NULL DEFAULT '0' COMMENT 'updated  timestamp',
-    deleted_at bigint NOT NULL DEFAULT '0' COMMENT 'updated  timestamp'
+    deleted_at bigint NOT NULL DEFAULT '0' COMMENT 'deleted  timestamp'
 ) engine = innodb COMMENT 'task info';
