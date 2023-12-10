@@ -1,12 +1,16 @@
+use std::time::Duration;
+
 use log::{info, warn};
 use rdkafka::client::ClientContext;
 use rdkafka::config::RDKafkaLogLevel;
-use rdkafka::consumer::{CommitMode, Consumer, ConsumerContext, Rebalance, StreamConsumer};
+use rdkafka::consumer::{
+    BaseConsumer, CommitMode, Consumer, ConsumerContext, Rebalance, StreamConsumer,
+};
 use rdkafka::error::KafkaResult;
 use rdkafka::message::{Headers, Message};
 use rdkafka::topic_partition_list::TopicPartitionList;
 use rdkafka::ClientConfig;
-
+use serde::Deserialize;
 struct CustomContext {
     pub id: String,
 }
@@ -88,4 +92,41 @@ pub async fn consume_and_print(brokers: &str, group_id: &str, topics: &[&str]) {
             }
         };
     }
+}
+
+pub fn kafka_test_connect(cfg: &serde_json::Value) -> anyhow::Result<(), String> {
+    let kcc = serde_json::from_value(cfg.clone());
+    if kcc.is_err() {
+        return Err(format!("{:?}", kcc.err()));
+    }
+    let kcc: KafkaConnectReqCfg = kcc.unwrap();
+    info!("kcc is config {:?}", kcc);
+    let cc = ClientConfig::new()
+        .set("bootstrap.servers", kcc.broker)
+        .create();
+    if cc.is_err() {
+        return Err(format!("connect to broker error {:?}", cc.err()));
+    }
+    let consumer: BaseConsumer = cc.unwrap();
+    let metadata = consumer.fetch_metadata(Some(kcc.topic.as_str()), Duration::from_secs(10));
+    if metadata.is_err() {
+        return Err(format!(
+            "fetch topic {} error {:?}",
+            kcc.topic,
+            metadata.err()
+        ));
+    }
+    let v = metadata.unwrap();
+
+    if v.topics().len() == 1  && v.topics()[0].error().is_some(){
+        return Err(format!("not found topic:{}", kcc.topic));
+    }
+
+    return Ok(());
+}
+
+#[derive(Debug, Deserialize)]
+struct KafkaConnectReqCfg {
+    broker: String,
+    topic: String,
 }

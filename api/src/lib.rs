@@ -47,6 +47,7 @@ pub async fn start(app_conf: conf::app::AppConfig) -> anyhow::Result<()> {
         .route("/task/start2", post(start_task2))
         .route("/task/cancel", post(cancel_task))
         .route("/task/new", post(create_task))
+        .route("/connect_testing", post(connect_testing))
         .fallback(handler_404)
         .with_state(state);
 
@@ -294,5 +295,30 @@ async fn create_task(
         err_msg: "success".to_owned(),
         err_no: 10_000,
         data: Some(req),
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ConnectTestingRequest {
+    pub detect_type: String,
+    pub cfg: serde_json::Value,
+}
+
+// connect
+async fn connect_testing(Json(req): Json<ConnectTestingRequest>) -> Whortleberry<String> {
+    info!("testing..... connect {:?}", req);
+    let res = kafka::kafka_test_connect(&req.cfg);
+    if res.is_err() {
+        Whortleberry {
+            err_msg: "failed to find topic".to_owned(),
+            err_no: 10_001,
+            data: res.err().unwrap(),
+        }
+    } else {
+        Whortleberry {
+            err_msg: "success".to_owned(),
+            err_no: 10_000,
+            data: "success".to_owned(),
+        }
     }
 }
