@@ -23,7 +23,7 @@ use sqlx::{
 };
 use task::NewTaskRequest;
 
-use std::{collections::HashMap, net::SocketAddr, time::Duration};
+use std::{collections::HashMap, fmt::format, net::SocketAddr, time::Duration};
 
 use tower_http::{
     cors::{self, CorsLayer},
@@ -307,6 +307,13 @@ pub struct ConnectTestingRequest {
 // connect
 async fn connect_testing(Json(req): Json<ConnectTestingRequest>) -> Whortleberry<String> {
     info!("testing..... connect {:?}", req);
+    if req.detect_type != "kafka" {
+        return Whortleberry {
+            err_msg: format!("not support {}", req.detect_type),
+            err_no: 10_003,
+            data: "".to_owned(),
+        };
+    }
     let res = kafka::kafka_test_connect(&req.cfg);
     if res.is_err() {
         Whortleberry {
