@@ -449,13 +449,23 @@ async fn fetch_task_list(
 async fn update_task(
     state: State<AppState>,
     Json(req): Json<task::UpdateTaskRequest>,
-) -> Whortleberry<String> {
+) -> Whortleberry<Option<String>> {
+    // check task is running....
+    if pubg::task::task_running(&req.id).await {
+        error!("task is running {}", req.id);
+        return Whortleberry {
+            err_msg: format!("task {} is running", req.id),
+            err_no: 10_008,
+            data: None,
+        };
+    }
     info!("req ..{:?}", req);
+
     // sqlx::query("SELECT count(*) FROM task WHERE id = ?").bind(req.id).execute(state.conn).await
     // todo
     Whortleberry {
         err_msg: "success".to_owned(),
         err_no: 10_000,
-        data: "".to_owned(),
+        data: Some("".to_owned()),
     }
 }

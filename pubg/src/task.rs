@@ -92,3 +92,9 @@ pub async fn remove_tasking(task_id: String) -> bool {
     lock.remove(task_id.to_owned().as_str());
     return true;
 }
+
+// check task is running?
+pub async fn task_running(task_id: &String) -> bool {
+    let lock = GLOBAL_TASKING.lock().unwrap();
+    return lock.contains_key(task_id);
+}
