@@ -31,7 +31,7 @@ pub struct Task {
     /// task name
     pub name: String,
     // latest heartbeat
-    pub last_heartbeat: u64,
+    pub last_heartbeat: i64,
     // source type like kafka
     pub src_type: String,
     // sink type like kafka
@@ -73,7 +73,7 @@ impl Task {
         Self {
             id: mongodb::bson::oid::ObjectId::new().to_hex(),
             name: req.name.clone(),
-            last_heartbeat: Instant::now().elapsed().as_secs(),
+            last_heartbeat: Instant::now().elapsed().as_secs() as i64,
             src_type: req.src_type.clone(),
             dst_type: req.dst_type.clone(),
             status: TaskStatus::Created.get_status(),

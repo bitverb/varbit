@@ -16,7 +16,7 @@ anyhow = { version = "1.0.75", features = ["default"] }
 tokio = { version = "1.33.0", features = ["full"] }
 serde = { version = "1.0.189", features = ["default"] }
 serde_json = { version = "1.0.107", features = ["default"] }
-sqlx = { version = "0.7.2", features = [
+sqlx = { version = "0.7", features = [
     "runtime-tokio-rustls",
     "mysql",
     "chrono",

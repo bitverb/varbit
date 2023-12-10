@@ -21,7 +21,7 @@ use sqlx::{
     types::chrono::{self},
     MySql, Pool,
 };
-use task::NewTaskRequest;
+use task::{NewTaskRequest, Task};
 
 use std::{collections::HashMap, fmt::format, net::SocketAddr, time::Duration};
 
@@ -48,6 +48,7 @@ pub async fn start(app_conf: conf::app::AppConfig) -> anyhow::Result<()> {
         .route("/task/cancel", post(cancel_task))
         .route("/task/new", post(create_task))
         .route("/connect_testing", post(connect_testing))
+        .route("/task/list", get(fetch_task_list))
         .fallback(handler_404)
         .with_state(state);
 
@@ -327,5 +328,48 @@ async fn connect_testing(Json(req): Json<ConnectTestingRequest>) -> Whortleberry
             err_no: 10_000,
             data: "success".to_owned(),
         }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct FetchTaskListReq {
+    pub status: i32,
+    pub page_size: i32,
+    pub page: i32,
+}
+
+async fn fetch_task_list(
+    state: State<AppState>,
+    Query(mut req): Query<FetchTaskListReq>,
+) -> Whortleberry<Vec<Task>> {
+    // sqlx::query!("SELECT * FROM task where status = ?",).
+    if req.page_size <= 0 || req.page_size >= 100 {
+        req.page_size = 100
+    }
+    if req.page <= 0 {
+        req.page = 0
+    }
+    // fetch task
+    let res = sqlx::query_as::<MySql, Task>("SELECT * FROM task WHERE status = ? limit ? offset ?")
+        .bind(req.status)
+        .bind(req.page_size)
+        .bind(req.page * req.page_size)
+        .fetch_all(&state.conn)
+        .await;
+    if res.is_err() {
+        let err = format!("error {:?}", res.err());
+        error!("{}", err);
+        return Whortleberry {
+            err_msg: err,
+            err_no: 10_003,
+            data: vec![],
+        };
+    }
+
+    info!("fetch task _list {:?}", req);
+    Whortleberry {
+        err_msg: "".to_owned(),
+        err_no: 10000,
+        data: res.unwrap(),
     }
 }
