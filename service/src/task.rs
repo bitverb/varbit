@@ -27,7 +27,7 @@ pub mod json {
         default_value: HashMap<String, serde_json::Value>,
 
         // fold
-        fold: HashMap<String, serde_json::Value>,
+        fold: HashSet<String>,
 
         // task id
         task_id: String,
@@ -40,11 +40,27 @@ pub mod json {
                 sep,
                 ignore: HashSet::new(),
                 default_value: HashMap::new(),
-                fold: HashMap::new(),
+                fold: HashSet::new(),
                 task_id: task_id.to_owned(),
             }
         }
 
+        pub fn new_cfg(
+            task_id: String,
+            sep: String,
+            max_depth: i32,
+            fold: HashSet<String>,
+            ignore: HashSet<String>,
+        ) -> Self {
+            Self {
+                sep: sep,
+                max_depth: max_depth,
+                ignore: ignore,
+                default_value: HashMap::new(),
+                fold: fold,
+                task_id: task_id,
+            }
+        }
         fn format_key(&self, pre_key: String, key: &String, depth: i32) -> String {
             if pre_key.is_empty() && key.is_empty() {
                 return String::new();
@@ -112,7 +128,7 @@ pub mod json {
                     g_id,
                     self.max_depth
                 );
-                return vec![];
+                return vec![curr.clone()];
             }
 
             let mut tmp_result_list: Vec<HashMap<String, serde_json::Value>> = vec![];
@@ -147,6 +163,14 @@ pub mod json {
                             pre_key.to_owned(),
                             oj.clone()
                         );
+                        if self.ignore.contains(pre_key) {
+                            info!(
+                                "[{MOD_NAME}] task_id {} g_id {g_id} ignore key {:?}",
+                                self.task_id,
+                                pre_key.clone()
+                            );
+                            continue;
+                        }
                         let mut m: HashMap<String, serde_json::Value> = curr.clone();
                         m.insert(pre_key.clone(), oj.clone());
                         tmp_result_list.push(m);
@@ -194,6 +218,32 @@ pub mod json {
                     g_id,
                     value.to_string()
                 );
+                let curr_key = &self.format_key(pre_key.clone(), key, depth);
+                // ignore object
+                if self.ignore.contains(curr_key) {
+                    info!(
+                        "[{MOD_NAME}] task_id {}, g_id{} ignore key {} value {:?}",
+                        self.task_id,
+                        g_id,
+                        curr_key,
+                        value.to_string()
+                    );
+                    continue;
+                }
+                // fold object
+                if self.fold.contains(curr_key) {
+                    info!(
+                        "[{MOD_NAME}] task_id {}, g_id{} fold key {} value{:?}",
+                        self.task_id,
+                        g_id,
+                        curr_key,
+                        value.to_string(),
+                    );
+                    for c in &mut tmp_result_list {
+                        c.insert(curr_key.clone(), value.clone());
+                    }
+                    continue;
+                }
                 match value {
                     serde_json::Value::Object(_obj) => {
                         let mut result_list: Vec<HashMap<String, serde_json::Value>> = Vec::new();
@@ -438,9 +488,40 @@ pub mod json {
 
     #[cfg(test)]
     mod tests {
+
         use serde_json::json;
 
         use super::*;
+
+        #[test]
+        fn test_parser_with_ignore() {
+            let mut ignore = HashSet::new();
+            ignore.insert("name".to_owned());
+            let cry = ChrysaetosBit::new_cfg(
+                "test_parser_with_ignore".to_owned(),
+                "_".to_owned(),
+                -1,
+                HashSet::new(),
+                ignore,
+            );
+            let res: Vec<HashMap<String, serde_json::Value>> = cry.parse(
+                &"test_parser_with_ignore".to_owned(),
+                &serde_json::from_str(
+                    r###"
+        {
+            "name":"ace",
+            "list": [1,2,3],
+            "user":{"age":18,"area":"cantonese"}
+        }
+        "###
+                    .to_owned()
+                    .as_str(),
+                )
+                .unwrap(),
+            );
+            assert_eq!(res.len(), 3);
+            println!("len {}", res.len());
+        }
 
         #[test]
         fn it_works() {

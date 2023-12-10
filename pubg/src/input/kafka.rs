@@ -71,7 +71,6 @@ pub struct KafkaSrc {}
 #[async_trait]
 impl Src for KafkaSrc {
     async fn from_src(&self, task_id: String, conf: &serde_json::Value, sender: mpsc::Sender<Msg>) {
-        // String::from("").to_string()
         let raw_value = serde_json::from_value(conf.clone());
         if raw_value.is_err() {
             let err: serde_json::Error = (raw_value).err().unwrap();

@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 use log::{debug, error, info};
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 use std::time::Duration;
 use tokio::sync::mpsc;
 
@@ -46,8 +47,9 @@ impl Dst for KafkaDst {
             task_id.to_owned(),
             sfc
         );
-
-        let cry = service::task::json::ChrysaetosBit::new(task_id.clone(), "_".to_owned(), 32);
+        let mut  ignore = HashSet::new();
+        ignore.insert("ts".to_owned());
+        let cry = service::task::json::ChrysaetosBit::new_cfg(task_id.clone(), "_".to_owned(), 32,HashSet::new(),ignore);
 
         while let Some(msg) = receive.recv().await {
             let res = cry.parse(&msg.g_id,&msg.value);
