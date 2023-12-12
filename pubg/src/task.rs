@@ -5,6 +5,7 @@ use std::{
 
 use lazy_static::lazy_static;
 use log::info;
+use serde::Deserialize;
 use tokio::sync::mpsc;
 use tokio_context::context;
 
@@ -97,4 +98,21 @@ pub async fn remove_tasking(task_id: String) -> bool {
 pub async fn task_running(task_id: &String) -> bool {
     let lock = GLOBAL_TASKING.lock().unwrap();
     return lock.contains_key(task_id);
+}
+
+#[derive(Deserialize)]
+struct InputKafkaConfigMeta {
+    /// broker
+    pub broker: String,
+    /// topic
+    pub topic: String,
+}
+
+pub fn check_kafka_src(cfg: &String) -> Result<(), String> {
+    let ikcm = serde_json::from_str::<InputKafkaConfigMeta>(cfg.as_str());
+    if ikcm.is_err() {
+        return Err(format!("invalid kafka input cfg {:?}",ikcm.err()));
+    }
+    // detected connect
+    Ok(())
 }

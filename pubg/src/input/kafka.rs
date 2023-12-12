@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use async_trait::async_trait;
 use log::{debug, error, info, warn};
 use serde::{Deserialize, Serialize};
@@ -60,6 +62,17 @@ struct KafkaSourceConfig {
     // json
     pub decoder: String,
     pub meta: KafkaSourceMeta,
+}
+
+pub fn check_cfg(cfg: &String) -> Result<(), String> {
+    let detect = serde_json::from_str::<KafkaSourceConfig>(cfg);
+    if detect.is_err() {
+        return Err(format!("cfg is invalid {:?}", detect.err()));
+    }
+
+    let c = detect.unwrap();
+
+    return Ok(());
 }
 
 #[derive(Deserialize, Debug, Serialize, Default)]

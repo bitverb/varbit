@@ -15,6 +15,7 @@ use axum::BoxError;
 use flash::Whortleberry;
 
 use log::{error, info};
+use pubg::task::task_running;
 use serde::{Deserialize, Serialize};
 use sqlx::{
     mysql::MySqlPoolOptions,
@@ -23,7 +24,12 @@ use sqlx::{
 };
 use task::{NewTaskRequest, Task};
 
-use std::{collections::HashMap, fmt::format, net::SocketAddr, time::Duration};
+use std::{
+    collections::{HashMap, HashSet},
+    future::IntoFuture,
+    net::SocketAddr,
+    time::Duration,
+};
 
 use tower_http::{
     cors::{self, CorsLayer},
@@ -50,6 +56,7 @@ pub async fn start(app_conf: conf::app::AppConfig) -> anyhow::Result<()> {
         .route("/connect_testing", post(connect_testing))
         .route("/task/list", get(fetch_task_list))
         .route("/task/update", put(update_task))
+        .route("/task/start", get(start_tasking))
         .fallback(handler_404)
         .with_state(state);
 
@@ -237,7 +244,7 @@ async fn build_db(db: conf::app::DbConfig) -> Pool<MySql> {
 async fn create_task(
     state: State<AppState>,
     Json(req): Json<NewTaskRequest>,
-) -> Whortleberry<Option<task::NewTaskRequest>> {
+) -> Whortleberry<Option<Task>> {
     info!("create task req {:?}", req);
 
     // check  src type is  kafka
@@ -260,69 +267,48 @@ async fn create_task(
         };
     }
 
-    let src_cfg: Result<serde_json::Value, serde_json::Error> =
-        serde_json::from_str(&req.src_cfg.to_owned().as_str());
-    if src_cfg.is_err() {
-        let err_msg = format!(
-            "src_cfg error expected json format data but {:?} value is {:?}",
-            src_cfg.err(),
-            req.src_cfg
-        );
+    // src cfg
+    if let Err(err) = serde_json::from_value::<KafkaSrcCfg>(req.src_cfg.clone()) {
+        error!("invalid src cfg expected json config {:?}", err);
         return Whortleberry {
-            err_msg: err_msg,
             err_no: 400,
+            err_msg: format!("invalid json format config {:?}", err),
             data: None,
         };
     }
 
-    let src_cfg_val: serde_json::Value = match req.src_type.as_str() {
-        "kafka" => serde_json::from_str(req.src_cfg.to_owned().as_str()).unwrap(),
-        _a @ _ => {
-            info!("default patch {}", _a);
-            serde_json::from_str("{}").unwrap()
-        }
-    };
-
-    if let Err(err) = serde_json::from_str::<serde_json::Value>(req.tasking_cfg.as_str()) {
-        error!("invalid json format for tasking {:?}", err);
+    // dst config
+    if let Err(err) = serde_json::from_value::<KafkaDstCfg>(req.dst_cfg.clone()) {
+        error!(
+            "invalid dst cfg expected {:?} json format {:?}",
+            req.dst_cfg, err
+        );
         return Whortleberry {
             err_msg: format!(
-                "invalid json format for tasking {:?}",
-                req.tasking_cfg.to_string()
+                "invalid dst cfg expected json format but get {:?} error{:?}",
+                req.dst_cfg, err
             ),
             err_no: 400,
             data: None,
         };
     }
 
-    if let Err(err) = serde_json::from_str::<serde_json::Value>(req.src_cfg.as_str()) {
-        error!(
-            "invalid json format for src config {:?} error:{:?}",
-            req.src_cfg, err
-        );
+    if let Err(err) = serde_json::from_value::<TaskingCfg>(req.tasking_cfg.clone()) {
+        error!("invalid json format for tasking {:?}", err);
         return Whortleberry {
-            err_msg: format!("invalid json format for src config {:?}", req.src_cfg),
+            err_msg: format!(
+                "invalid json format for tasking {:?}, error{:?}",
+                req.tasking_cfg.to_string(),
+                err
+            ),
             err_no: 400,
             data: None,
         };
     }
 
-    if let Err(err) = serde_json::from_str::<serde_json::Value>(req.dst_cfg.as_str()) {
-        error!(
-            "invalid json format for dst config {:?} error:{:?}",
-            req.dst_cfg, err
-        );
-        return Whortleberry {
-            err_msg: format!("invalid json format for dst config {:?}", req.dst_cfg),
-            err_no: 400,
-            data: None,
-        };
-    }
     let t = task::Task::from_task_detail(&req);
 
     info!("task is {:?}", t);
-
-    info!("src_cfg {:?}", src_cfg_val.to_owned().to_string());
 
     let v = sqlx::query(
         r###"INSERT INTO task (
@@ -339,18 +325,18 @@ async fn create_task(
         deleted_at,
         tasking_cfg) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)"###,
     )
-    .bind(t.id)
-    .bind(t.name)
-    .bind(t.last_heartbeat)
-    .bind(t.src_type)
-    .bind(t.dst_type)
-    .bind(t.src_cfg)
-    .bind(t.dst_cfg)
-    .bind(t.status)
-    .bind(t.created_at)
-    .bind(t.updated_at)
-    .bind(t.deleted_at)
-    .bind(t.tasking_cfg)
+    .bind(&t.id)
+    .bind(&t.name)
+    .bind(&t.last_heartbeat)
+    .bind(&t.src_type)
+    .bind(&t.dst_type)
+    .bind(&t.src_cfg)
+    .bind(&t.dst_cfg)
+    .bind(&t.status)
+    .bind(&t.created_at)
+    .bind(&t.updated_at)
+    .bind(&t.deleted_at)
+    .bind(&t.tasking_cfg)
     .execute(&state.conn)
     .await;
     if v.is_err() {
@@ -365,7 +351,7 @@ async fn create_task(
     Whortleberry {
         err_msg: "success".to_owned(),
         err_no: 10_000,
-        data: Some(req),
+        data: Some(t),
     }
 }
 
@@ -459,13 +445,86 @@ async fn update_task(
             data: None,
         };
     }
-    info!("req ..{:?}", req);
-
-    // sqlx::query("SELECT count(*) FROM task WHERE id = ?").bind(req.id).execute(state.conn).await
-    // todo
+    info!("req ...{:?}", req);
     Whortleberry {
         err_msg: "success".to_owned(),
         err_no: 10_000,
         data: Some("".to_owned()),
     }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct StartTaskingRequest {
+    pub task_id: String,
+}
+
+async fn start_tasking(
+    state: State<AppState>,
+    Query(req): Query<StartTaskingRequest>,
+) -> Whortleberry<String> {
+    info!("start tasking.....{:?}", req);
+    if task_running(&req.task_id).await {
+        info!("task {} is running", req.task_id);
+        return Whortleberry {
+            err_msg: format!("task {} is running ", req.task_id),
+            err_no: 10_000,
+            data: "success".to_owned(),
+        };
+    }
+
+    let task = match sqlx::query_as::<MySql, Task>("SELECT * FROM task where id = ?")
+        .bind(&req.task_id)
+        .fetch_one(&state.conn)
+        .await
+    {
+        Ok(v) => v,
+        Err(err) => {
+            error!("failed to find {:?} error: {:?}", &req.task_id, err);
+            return Whortleberry {
+                err_msg: format!("failed to find task{}, error:{:?}", req.task_id, err),
+                err_no: 10_001,
+                data: "unable to find task".to_owned(),
+            };
+        }
+    };
+
+    info!("data is {:?}", task);
+
+    /// check task is exists
+    return Whortleberry {
+        err_no: 10000,
+        err_msg: "success".to_owned(),
+        data: "success".to_owned(),
+    };
+}
+
+#[derive(Debug, Deserialize)]
+struct KafkaSrcCfg {
+    /// decoder
+    pub decoder: String, // json format
+    /// broker
+    pub broker: String, // broker
+    /// topic
+    pub topic: String, // topic
+}
+
+#[derive(Debug, Deserialize)]
+struct KafkaDstCfg {
+    /// encoder
+    pub encoder: String,
+    /// broker
+    pub broker: String,
+    /// topic
+    pub topic: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct TaskingCfg {
+    /// ignore key
+    pub ignore: HashSet<String>,
+    /// sep mean _, or other
+    pub sep: String,
+    /// max_depth
+    pub max_depth: i32,
+    pub fold: HashSet<String>,
 }

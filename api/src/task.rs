@@ -60,12 +60,13 @@ pub struct NewTaskRequest {
     // src type like kafka
     pub src_type: String,
     // src config json format
-    pub src_cfg: String,
+    pub src_cfg: serde_json::Value,
     // dst type like kafka
     pub dst_type: String,
     /// dst cfg json format
-    pub dst_cfg: String,
-    pub tasking_cfg: String,
+    pub dst_cfg: serde_json::Value,
+    // json format
+    pub tasking_cfg: serde_json::Value,
 }
 // json
 impl Task {
@@ -86,9 +87,9 @@ impl Task {
                 .unwrap()
                 .as_secs() as i64,
             deleted_at: 0,
-            src_cfg: req.src_cfg.clone(),
-            dst_cfg: req.dst_cfg.clone(),
-            tasking_cfg: req.tasking_cfg.clone(),
+            src_cfg: req.src_cfg.to_string(),
+            dst_cfg: req.dst_cfg.to_string(),
+            tasking_cfg: req.tasking_cfg.to_string(),
         }
     }
 
@@ -119,5 +120,6 @@ pub struct UpdateTaskRequest {
     pub dst_type: String,
     /// dst cfg json format
     pub dst_cfg: String,
+    /// tasking cfg json format
     pub tasking_cfg: String,
 }

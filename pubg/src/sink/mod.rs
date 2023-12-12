@@ -6,7 +6,6 @@ use crate::core::Msg;
 pub mod kafka;
 
 #[async_trait]
-
 pub trait Dst: Send + Sync {
     async fn to_dst(
         &self,
