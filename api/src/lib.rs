@@ -31,7 +31,7 @@ use task::{NewTaskRequest, Task};
 
 use std::{
     collections::{HashMap, HashSet},
-    net::SocketAddr,
+    net::{SocketAddr, TcpListener},
     time::Duration,
 };
 
@@ -64,12 +64,15 @@ pub async fn start(app_conf: conf::app::AppConfig) -> anyhow::Result<()> {
         .fallback(handler_404)
         .with_state(state);
 
-    let addr = SocketAddr::from(([0, 0, 0, 0], 8080));
-
-    axum::Server::bind(&addr)
+    info!("listen {}", app_conf.http.listen.to_owned());
+    let listener = TcpListener::bind(app_conf.http.listen.to_owned())
+        .expect(format!("unable to listen {}", app_conf.http.listen.to_owned()).as_str());
+    axum::Server::from_tcp(listener)
+        .expect("server bind  tcp error ")
         .serve(app.into_make_service())
         .await
         .unwrap();
+
     Ok(())
 }
 

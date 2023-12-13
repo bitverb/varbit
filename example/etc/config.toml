@@ -1,7 +1,5 @@
-host = "127.0.0.1:8080"
 name = "verb"
 [http]
-port = 8080
 listen = "127.0.0.1:8080"
 
 [data]
