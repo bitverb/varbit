@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::vec;
 
 use async_trait::async_trait;
 use log::{debug, error, info, warn};
@@ -54,7 +54,7 @@ impl ConsumerContext for CustomContext {
 type LoggingConsumer = StreamConsumer<CustomContext>;
 
 #[derive(Deserialize, Debug, Serialize, Default)]
-struct KafkaSourceConfig {
+pub struct KafkaSourceConfig {
     pub broker: String,
     pub topic: String,
     pub group_id: String,
@@ -65,14 +65,10 @@ struct KafkaSourceConfig {
 }
 
 pub fn check_cfg(cfg: &String) -> Result<(), String> {
-    let detect = serde_json::from_str::<KafkaSourceConfig>(cfg);
-    if detect.is_err() {
-        return Err(format!("cfg is invalid {:?}", detect.err()));
+    match serde_json::from_str::<KafkaSourceConfig>(cfg) {
+        Ok(_) => Ok(()),
+        Err(err) => Err(format!("cfg {} is invalid {:?}", cfg, err)),
     }
-
-    let c = detect.unwrap();
-
-    return Ok(());
 }
 
 #[derive(Deserialize, Debug, Serialize, Default)]
@@ -84,48 +80,54 @@ pub struct KafkaSrc {}
 #[async_trait]
 impl Src for KafkaSrc {
     async fn from_src(&self, task_id: String, conf: &serde_json::Value, sender: mpsc::Sender<Msg>) {
-        let raw_value = serde_json::from_value(conf.clone());
-        if raw_value.is_err() {
-            let err: serde_json::Error = (raw_value).err().unwrap();
-            error!(
-                "task_id: {:?} un_marshal as KafkaSourceConfig error {:?}",
-                task_id, err
-            );
-            return;
-        }
-
-        let sfc: KafkaSourceConfig = raw_value.unwrap();
+        info!("task id [{}] conf:{:?}", task_id, conf.to_string());
+        let sfc = match serde_json::from_value::<KafkaSourceConfig>(conf.clone()) {
+            Ok(v) => v,
+            Err(err) => {
+                error!(
+                    "task_id: {:?} cfg {:?} un_marshal as KafkaSourceConfig error {:?}",
+                    task_id,
+                    conf.clone(),
+                    err
+                );
+                return;
+            }
+        };
         info!("task_id:{:?} sfc {:?}", task_id, sfc);
 
         let context = CustomContext {
             task_id: task_id.to_owned(),
         };
-        let consumer_res = ClientConfig::new()
+
+        let consumer = match ClientConfig::new()
             .set("group.id", sfc.group_id.to_owned().as_str())
             .set("bootstrap.servers", sfc.broker.to_owned().as_str())
             .set("enable.partition.eof", "false")
             .set("session.timeout.ms", "6000")
             .set("enable.auto.commit", "true")
             .set_log_level(RDKafkaLogLevel::Debug)
-            .create_with_context(context);
-        if consumer_res.is_err() {
-            error!(
-                "task_id {task_id} build kafka consumer creation failed : {:?}",
-                consumer_res.err()
-            );
-            return;
-        }
+            .create_with_context::<CustomContext, LoggingConsumer>(context)
+        {
+            Ok(v) => v,
+            Err(err) => {
+                error!(
+                    "task_id {task_id} build kafka consumer creation failed : {:?}",
+                    err
+                );
+                return;
+            }
+        };
 
-        let consumer: LoggingConsumer = consumer_res.unwrap();
-
-        let stream_consumer_res = consumer.subscribe(&vec![sfc.topic.to_owned().as_str()]);
-        if stream_consumer_res.is_err() {
-            error!(
-                "task_id {task_id} subscribe to specified topic{:?} failed {:?}",
-                sfc.topic.to_owned(),
-                stream_consumer_res.err()
-            );
-            return;
+        match consumer.subscribe(&vec![sfc.topic.to_owned().as_str()]) {
+            Ok(_) => (),
+            Err(err) => {
+                error!(
+                    "task_id {task_id} subscribe to specified topic{:?} failed {:?}",
+                    sfc.topic.to_owned(),
+                    err
+                );
+                return;
+            }
         }
         loop {
             match consumer.recv().await {

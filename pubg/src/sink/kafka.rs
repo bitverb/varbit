@@ -29,30 +29,49 @@ impl Dst for KafkaDst {
             task_id,
             serde_json::to_string(&conf.to_owned()).unwrap()
         );
-        let dst_raw: Result<KafkaDstConfig, serde_json::Error> =
-            serde_json::from_value(conf.to_owned());
-        if dst_raw.is_err() {
-            error!(
-                "[dst] {} task_id {} un marshal error {:?}",
-                self.dst_name(),
-                task_id.to_owned(),
-                dst_raw.err()
-            );
-            return;
-        }
-        let sfc: KafkaDstConfig = dst_raw.unwrap();
+
+        let sfc = match serde_json::from_value::<KafkaDstConfig>(conf.to_owned()) {
+            Ok(v) => v,
+            Err(err) => {
+                error!(
+                    "parser config {:?} error {:?}",
+                    conf.to_owned().to_string(),
+                    err
+                );
+                return;
+            }
+        };
+
         info!(
             "[dst] {} task_id {} config:{:?}",
             self.dst_name(),
             task_id.to_owned(),
             sfc
         );
-        let mut  ignore = HashSet::new();
+        let producer = match ClientConfig::new()
+            .set("bootstrap.servers", sfc.broker.as_str())
+            .set("message.timeout.ms", "5000")
+            .create::<FutureProducer>()
+        {
+            Ok(v) => v,
+            Err(err) => {
+                error!("create producer error {:?}", err);
+                return;
+            }
+        };
+
+        let mut ignore = HashSet::new();
         ignore.insert("ts".to_owned());
-        let cry = service::task::json::ChrysaetosBit::new_cfg(task_id.clone(), "_".to_owned(), 32,HashSet::new(),ignore);
+        let cry = service::task::json::ChrysaetosBit::new_cfg(
+            task_id.clone(),
+            "_".to_owned(),
+            32,
+            HashSet::new(),
+            ignore,
+        );
 
         while let Some(msg) = receive.recv().await {
-            let res = cry.parse(&msg.g_id,&msg.value);
+            let res = cry.parse(&msg.g_id, &msg.value);
 
             debug!(
                 "[dst] {} task_id:{} g_id:{} receive  data {:?} res{:?}",
@@ -62,13 +81,39 @@ impl Dst for KafkaDst {
                 msg.value.to_string(),
                 serde_json::to_string(&serde_json::json!(res)).unwrap(),
             );
+
+            for data in &res {
+                let producer_status = match producer
+                    .send(
+                        FutureRecord::to(sfc.topic.as_str())
+                            .key(&"".to_owned())
+                            .payload(&format!("{}", serde_json::json!(data).to_string()))
+                            .headers(OwnedHeaders::new()),
+                        Duration::from_secs(0),
+                    )
+                    .await
+                {
+                    Ok(v) => v,
+                    Err(err) => {
+                        error!(
+                            "[dst] task_id {}, g_id {} send data error {:?}",
+                            task_id, msg.g_id, err
+                        );
+                        continue;
+                    }
+                };
+                debug!(
+                    "[dst] task_id {}, g_id {}, producer_status {:?}",
+                    task_id, msg.g_id, producer_status
+                );
+            }
         }
 
-        info!("exit...consumer....{:?}",receive.recv().await)
+        info!("exit...consumer....{:?}", receive.recv().await)
     }
 
     fn cfg(&self) -> serde_json::Value {
-        todo!()
+        serde_json::json!(KafkaDstConfig::default())
     }
 
     fn dst_name(&self) -> String {
@@ -87,39 +132,4 @@ pub struct KafkaDstConfig {
 
 pub struct KafkaDstMeta {
     pub task_id: String,
-}
-
-async fn produce(brokers: &str, topic_name: &str) {
-    let producer: &FutureProducer = &ClientConfig::new()
-        .set("bootstrap.servers", brokers)
-        .set("message.timeout.ms", "5000")
-        .create()
-        .expect("Producer creation error");
-
-    // This loop is non blocking: all messages will be sent one after the other, without waiting
-    // for the results.
-    let futures = (0..5)
-        .map(|i| async move {
-            // The send operation on the topic returns a future, which will be
-            // completed once the result or failure from Kafka is received.
-            let delivery_status = producer
-                .send(
-                    FutureRecord::to(topic_name)
-                        .payload(&format!("Message {}", i))
-                        .key(&format!("Key {}", i))
-                        .headers(OwnedHeaders::new().add("header_key", "header_value")),
-                    Duration::from_secs(0),
-                )
-                .await;
-
-            // This will be executed when the result is received.
-            info!("Delivery status for message {} received", i);
-            delivery_status
-        })
-        .collect::<Vec<_>>();
-
-    // This loop will wait until all delivery statuses have been received.
-    for future in futures {
-        info!("Future completed. Result: {:?}", future.await);
-    }
 }

@@ -41,10 +41,10 @@ pub async fn dispatch_tasking(
     let mut _dst: std::sync::MutexGuard<'_, HashMap<String, Arc<Box<dyn Dst + Send + Sync>>>> =
         DST_PLUGIN.lock().unwrap();
     let _dst = _dst.get(dst_type.to_owned().as_str()).unwrap().clone();
-    let src_conf = src_conf.clone();
+    let dst_conf = dst_conf.clone();
     let task_id_2_dst = task_id.clone();
     let dst_handler = tokio::task::spawn(async move {
-        _dst.to_dst(task_id_2_dst.clone(), src_conf.clone(), _tx)
+        _dst.to_dst(task_id_2_dst.clone(), dst_conf.clone(), _tx)
             .await;
     });
 
@@ -53,10 +53,10 @@ pub async fn dispatch_tasking(
     let source = _data.get(src_type.to_owned().as_str()).unwrap();
     let source = source.clone();
     let task_id_2_src = task_id.clone();
-    let dst_conf = dst_conf.clone();
+    let src_conf: serde_json::Value = src_conf.clone();
     let src_handler = tokio::task::spawn(async move {
         source
-            .from_src(task_id_2_src.clone(), &dst_conf.clone(), rx)
+            .from_src(task_id_2_src.clone(), &src_conf.clone(), rx)
             .await;
     });
     let (_, mut handle) = context::Context::new();
@@ -109,10 +109,8 @@ struct InputKafkaConfigMeta {
 }
 
 pub fn check_kafka_src(cfg: &String) -> Result<(), String> {
-    let ikcm = serde_json::from_str::<InputKafkaConfigMeta>(cfg.as_str());
-    if ikcm.is_err() {
-        return Err(format!("invalid kafka input cfg {:?}",ikcm.err()));
+    match serde_json::from_str::<InputKafkaConfigMeta>(cfg.as_str()) {
+        Ok(_) => Ok(()),
+        Err(err) => Err(format!("invalid kafka input cfg {:?}", err)),
     }
-    // detected connect
-    Ok(())
 }
