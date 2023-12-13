@@ -13,6 +13,31 @@ pub mod json {
     const ZERO_DEPTH: i32 = 0;
 
     #[derive(Debug, Deserialize, Serialize)]
+    pub struct ChrysaetosBitConfig {
+        // split key
+        sep: String,
+
+        // walk max depth
+        max_depth: i32,
+
+        // ignore field
+        ignore: HashSet<String>,
+
+        // fold
+        fold: HashSet<String>,
+
+        // task id
+        task_id: String,
+    }
+    // check chrysaetos config
+    pub fn check_chrysaetos_bit_cfg(conf: &serde_json::Value) -> Result<(), String> {
+        match serde_json::from_value::<ChrysaetosBitConfig>(conf.clone()) {
+            Ok(_) => Ok(()),
+            Err(err) => Err(format!("invalid config {} error{:?}", conf, err)),
+        }
+    }
+
+    #[derive(Debug, Deserialize, Serialize)]
     pub struct ChrysaetosBit {
         // split key
         sep: String,

@@ -21,6 +21,7 @@ use pubg::{
     task::{dispatch_tasking, task_running},
 };
 use serde::{Deserialize, Serialize};
+use service::task::json::check_chrysaetos_bit_cfg;
 use sqlx::{
     mysql::MySqlPoolOptions,
     types::chrono::{self},
@@ -475,6 +476,20 @@ async fn update_task(
         }
     };
 
+    // check config is ok
+    match check_chrysaetos_bit_cfg(&req.tasking_cfg) {
+        Ok(_) => (),
+        Err(err) => {
+            error!("update task tasking cfg {} error{:?}", &req.src_cfg, err);
+            return Whortleberry {
+                err_msg: format!("invalid tasking cfg  {} error:{:?}", req.src_cfg, err),
+                err_no: 400,
+                data: None,
+            };
+        }
+    }
+
+    // update task
     // check task is ok
     info!("req ...{:?}", req);
     Whortleberry {

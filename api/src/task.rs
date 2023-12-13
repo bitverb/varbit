@@ -121,5 +121,5 @@ pub struct UpdateTaskRequest {
     /// dst cfg json format
     pub dst_cfg: serde_json::Value,
     /// tasking cfg json format
-    pub tasking_cfg: String,
+    pub tasking_cfg: serde_json::Value,
 }
