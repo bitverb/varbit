@@ -95,30 +95,33 @@ pub async fn consume_and_print(brokers: &str, group_id: &str, topics: &[&str]) {
 }
 
 pub fn kafka_test_connect(cfg: &serde_json::Value) -> anyhow::Result<(), String> {
-    let kcc = serde_json::from_value(cfg.clone());
-    if kcc.is_err() {
-        return Err(format!("{:?}", kcc.err()));
-    }
-    let kcc: KafkaConnectReqCfg = kcc.unwrap();
-    info!("kcc is config {:?}", kcc);
-    let cc = ClientConfig::new()
-        .set("bootstrap.servers", kcc.broker)
-        .create();
-    if cc.is_err() {
-        return Err(format!("connect to broker error {:?}", cc.err()));
-    }
-    let consumer: BaseConsumer = cc.unwrap();
-    let metadata = consumer.fetch_metadata(Some(kcc.topic.as_str()), Duration::from_secs(10));
-    if metadata.is_err() {
-        return Err(format!(
-            "fetch topic {} error {:?}",
-            kcc.topic,
-            metadata.err()
-        ));
-    }
-    let v = metadata.unwrap();
+    let kcc = match serde_json::from_value::<KafkaConnectReqCfg>(cfg.clone()) {
+        Ok(v) => v,
+        Err(err) => {
+            return Err(format!("{:?}", err));
+        }
+    };
 
-    if v.topics().len() == 1  && v.topics()[0].error().is_some(){
+    info!("kcc is config {:?}", kcc);
+    let consumer = match ClientConfig::new()
+        .set("bootstrap.servers", kcc.broker)
+        .create::<BaseConsumer>()
+    {
+        Ok(v) => v,
+        Err(err) => {
+            return Err(format!("connect to broker error {:?}", err));
+        }
+    };
+
+    let metadata = match consumer.fetch_metadata(Some(kcc.topic.as_str()), Duration::from_secs(10))
+    {
+        Ok(v) => v,
+        Err(err) => {
+            return Err(format!("fetch topic {} error {:?}", kcc.topic, err));
+        }
+    };
+
+    if metadata.topics().len() == 1 && metadata.topics()[0].error().is_some() {
         return Err(format!("not found topic:{}", kcc.topic));
     }
 

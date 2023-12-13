@@ -554,7 +554,7 @@ async fn start_tasking(
     .await;
     // task_running(task_id)
 
-    /// check task is exists
+    // check task is exists
     return Whortleberry {
         err_no: 10000,
         err_msg: "success".to_owned(),
