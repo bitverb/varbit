@@ -12,6 +12,7 @@ use axum::{
 };
 
 use axum::BoxError;
+use ::chrono::Local;
 use flash::Whortleberry;
 
 use log::{error, info};
@@ -44,13 +45,11 @@ pub async fn start(app_conf: conf::app::AppConfig) -> anyhow::Result<()> {
     let cors: CorsLayer = CorsLayer::new()
         .allow_methods(vec![Method::GET, Method::POST, Method::PUT])
         .allow_origin(cors::Any);
-    let limit: RequestBodyLimitLayer = RequestBodyLimitLayer::new(1024 * 10);
+    let limit: RequestBodyLimitLayer = RequestBodyLimitLayer::new(1024 * 1024 * 10);
 
     let app = Router::new()
         .layer(limit)
         .layer(cors)
-        .route("/", get(index))
-        .route("/task/start2", post(start_task2))
         .route("/task/cancel", post(cancel_task))
         .route("/task/new", post(create_task))
         .route("/connect_testing", post(connect_testing))
@@ -76,13 +75,13 @@ pub async fn handler_404() -> Whortleberry<HashMap<String, String>> {
     let mut data = HashMap::new();
     data.insert(
         String::from("ts"),
-        chrono::Utc::now().timestamp().to_string(),
+        Local::now().format("%Y-%m-%d %H:%M:%S.%3f").to_string()
     );
-    data.insert(String::from("info"), "欢迎使用".to_owned());
+    data.insert(String::from("info"), "welcome use freebit".to_owned());
 
     Whortleberry {
         err_no: 404,
-        err_msg: "a he, 404 not found!".to_string(),
+        err_msg: "ê hə, not found the specific resource!".to_string(),
         data,
     }
 }
@@ -135,67 +134,11 @@ async fn cancel_task(_state: State<AppState>, query: Query<CancelTaskReq>) -> Wh
 pub struct NewTaskRequest2 {
     pub task_id: String,
 }
-async fn start_task2(
-    _state: State<AppState>,
-    query: Query<NewTaskRequest2>,
-) -> Whortleberry<(String, bool)> {
-    info!("task id {:?}", query.task_id);
-    let ok = pubg::task::dispatch_tasking(
-        query.task_id.clone(),
-        "kafka".to_owned(),
-        &serde_json::json!({
-           "broker":"localhost:9092",
-           "topic":"my-topic",
-           "group_id":format!("verb-{}",query.task_id.to_owned()),
-           "encoder":"json",
-           "meta":{
-            "task_id":query.task_id.to_owned(),
-           }
-        }),
-        "kafka".to_owned(),
-        &serde_json::json!({
-           "broker":"localhost:9092",
-           "topic":"my-topic",
-           "group_id":format!("verb-{}",query.task_id.to_owned()),
-           "decoder":"json",
-           "meta":{
-            "task_id":query.task_id.to_owned(),
-           }
-        }),
-    )
-    .await;
-
-    Whortleberry {
-        err_no: 10000,
-        err_msg: format!("success",).to_owned(),
-        data: (query.task_id.to_owned(), ok),
-    }
-}
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Data {
     key: String,
     value: String,
-}
-
-async fn index(state: State<AppState>, header: HeaderMap) -> Whortleberry<Vec<Data>> {
-    // state.conn.
-    let _ = &state.conn;
-    info!("query {:?}", header);
-    let mut v = vec![];
-    for ele in &header {
-        info!("value = {:?}", ele.1);
-        v.push(Data {
-            key: String::from(ele.0.to_string()),
-            value: format!("{:#?}", ele.1),
-        })
-    }
-    error!("");
-    Whortleberry {
-        err_no: 10000,
-        err_msg: "success".to_string(),
-        data: v,
-    }
 }
 
 #[derive(Clone)]
