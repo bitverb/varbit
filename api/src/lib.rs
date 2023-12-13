@@ -17,7 +17,7 @@ use flash::Whortleberry;
 use log::{error, info};
 use pubg::{
     input::kafka::{KafkaSourceConfig, KafkaSourceMeta},
-    sink::kafka::{KafkaDstConfig, KafkaDstMeta},
+    sink::kafka::{check_dst_cfg, DstConfigReq, KafkaDstConfig, KafkaDstMeta},
     task::{dispatch_tasking, task_running},
 };
 use serde::{Deserialize, Serialize};
@@ -29,11 +29,7 @@ use sqlx::{
 };
 use task::{NewTaskRequest, Task};
 
-use std::{
-    collections::{HashMap, HashSet},
-    net::{SocketAddr, TcpListener},
-    time::Duration,
-};
+use std::{collections::HashMap, net::TcpListener, time::Duration};
 
 use tower_http::{
     cors::{self, CorsLayer},
@@ -114,11 +110,6 @@ pub async fn time_out_handler(err: BoxError) -> Whortleberry<HashMap<String, Str
         }
     }
 }
-
-// #[derive(Debug, Serialize, Default, Deserialize)]
-// pub struct NewTaskRequest {
-//     pub task_id: String,
-// }
 
 #[derive(Debug, Serialize, Default, Deserialize)]
 pub struct CancelTaskReq {
@@ -285,7 +276,7 @@ async fn create_task(
     }
 
     // dst config
-    if let Err(err) = serde_json::from_value::<KafkaDstCfg>(req.dst_cfg.clone()) {
+    if let Err(err) = serde_json::from_value::<DstConfigReq>(req.dst_cfg.clone()) {
         error!(
             "invalid dst cfg expected {:?} json format {:?}",
             req.dst_cfg, err
@@ -300,7 +291,7 @@ async fn create_task(
         };
     }
 
-    if let Err(err) = serde_json::from_value::<TaskingCfg>(req.tasking_cfg.clone()) {
+    if let Err(err) = check_chrysaetos_bit_cfg(&req.tasking_cfg) {
         error!("invalid json format for tasking {:?}", err);
         return Whortleberry {
             err_msg: format!(
@@ -563,7 +554,7 @@ async fn start_tasking(
         },
     };
 
-    let dst_cfg: KafkaDstCfg = match serde_json::from_str::<KafkaDstCfg>(&task.dst_cfg.as_str()) {
+    let dst_cfg = match check_dst_cfg(&serde_json::from_str(&task.dst_cfg).unwrap()) {
         Ok(v) => v,
         Err(err) => {
             error!(
@@ -616,25 +607,4 @@ struct KafkaSrcCfg {
     pub broker: String, // broker
     /// topic
     pub topic: String, // topic
-}
-
-#[derive(Debug, Deserialize)]
-struct KafkaDstCfg {
-    /// encoder
-    pub encoder: String,
-    /// broker
-    pub broker: String,
-    /// topic
-    pub topic: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct TaskingCfg {
-    /// ignore key
-    pub ignore: HashSet<String>,
-    /// sep mean _, or other
-    pub sep: String,
-    /// max_depth
-    pub max_depth: i32,
-    pub fold: HashSet<String>,
 }

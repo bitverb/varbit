@@ -135,15 +135,15 @@ pub struct KafkaDstMeta {
 }
 
 #[derive(Debug, Deserialize, Serialize)]
-struct UpdateDstConfigReq {
+pub struct DstConfigReq {
     pub broker: String,
     pub topic: String,
     pub encoder: String,
 }
 // check dst/sink config is ok?
-pub fn check_dst_cfg(conf: &serde_json::Value) -> Result<(), String> {
-    match serde_json::from_value::<UpdateDstConfigReq>(conf.clone()) {
-        Ok(_) => Ok(()),
+pub fn check_dst_cfg(conf: &serde_json::Value) -> Result<DstConfigReq, String> {
+    match serde_json::from_value::<DstConfigReq>(conf.clone()) {
+        Ok(v) => Ok(v),
         Err(err) => Err(format!("invalid config  {} error {:?}", conf, err)),
     }
 }
