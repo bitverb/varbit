@@ -100,7 +100,7 @@ impl Task {
         s.dst_type = req.dst_type.clone();
         s.src_cfg = req.src_cfg.to_string();
         s.src_type = req.src_type.clone();
-        s.tasking_cfg = req.tasking_cfg.clone();
+        s.tasking_cfg = req.tasking_cfg.to_string();
         s.status = TaskStatus::Cancel.get_status();
         s
     }
@@ -121,5 +121,5 @@ pub struct UpdateTaskRequest {
     /// dst cfg json format
     pub dst_cfg: serde_json::Value,
     /// tasking cfg json format
-    pub tasking_cfg: String,
+    pub tasking_cfg: serde_json::Value,
 }
