@@ -25,9 +25,6 @@ pub mod json {
 
         // fold
         fold: HashSet<String>,
-
-        // task id
-        task_id: String,
     }
     // check chrysaetos config
     pub fn check_chrysaetos_bit_cfg(conf: &serde_json::Value) -> Result<(), String> {

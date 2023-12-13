@@ -304,52 +304,26 @@ async fn create_task(
         };
     }
 
-    let t = task::Task::from_task_detail(&req);
+    let mut task = task::Task::from_task_detail(&req);
 
-    info!("task is {:?}", t);
+    info!("task is {:?}", task);
 
-    let v = sqlx::query(
-        r###"INSERT INTO task (
-        id,
-        name,
-        last_heartbeat,
-        src_type,
-        dst_type,
-        src_cfg,
-        dst_cfg,
-        status,
-        created_at,
-        updated_at,
-        deleted_at,
-        tasking_cfg) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)"###,
-    )
-    .bind(&t.id)
-    .bind(&t.name)
-    .bind(&t.last_heartbeat)
-    .bind(&t.src_type)
-    .bind(&t.dst_type)
-    .bind(&t.src_cfg)
-    .bind(&t.dst_cfg)
-    .bind(&t.status)
-    .bind(&t.created_at)
-    .bind(&t.updated_at)
-    .bind(&t.deleted_at)
-    .bind(&t.tasking_cfg)
-    .execute(&state.conn)
-    .await;
-    if v.is_err() {
-        error!("save task into database error {:?}", v.err());
-        return Whortleberry {
-            err_msg: "save task to database error".to_owned(),
-            err_no: 10_005,
-            data: None,
-        };
-    }
-    info!("create new task success result {:?} ", Some(v).unwrap());
+    match task::create_task(&state.conn, &mut task).await {
+        Ok(_) => {}
+        Err(err) => {
+            error!("save task into database error {:?}", err);
+            return Whortleberry {
+                err_msg: "save task to database error".to_owned(),
+                err_no: 10_005,
+                data: None,
+            };
+        }
+    };
+
     Whortleberry {
         err_msg: "success".to_owned(),
         err_no: 10_000,
-        data: Some(t),
+        data: Some(task),
     }
 }
 
@@ -397,7 +371,6 @@ async fn fetch_task_list(
     state: State<AppState>,
     Query(mut req): Query<FetchTaskListReq>,
 ) -> Whortleberry<Vec<Task>> {
-    // sqlx::query!("SELECT * FROM task where status = ?",).
     if req.page_size <= 0 || req.page_size >= 100 {
         req.page_size = 100
     }
@@ -405,27 +378,24 @@ async fn fetch_task_list(
         req.page = 0
     }
     // fetch task
-    let res = sqlx::query_as::<MySql, Task>("SELECT * FROM task WHERE status = ? limit ? offset ?")
-        .bind(req.status)
-        .bind(req.page_size)
-        .bind(req.page * req.page_size)
-        .fetch_all(&state.conn)
-        .await;
-    if res.is_err() {
-        let err = format!("error {:?}", res.err());
-        error!("{}", err);
-        return Whortleberry {
-            err_msg: err,
-            err_no: 10_003,
-            data: vec![],
-        };
-    }
+    let res = match task::fetch_task_list(&state.conn, req.status, req.page_size, req.page).await {
+        Ok(v) => v,
+        Err(err) => {
+            let err = format!("error {:?}", err);
+            error!("{}", err);
+            return Whortleberry {
+                err_msg: err,
+                err_no: 10_003,
+                data: vec![],
+            };
+        }
+    };
 
     info!("fetch task _list {:?}", req);
     Whortleberry {
         err_msg: "".to_owned(),
         err_no: 10000,
-        data: res.unwrap(),
+        data: res,
     }
 }
 
@@ -445,17 +415,14 @@ async fn update_task(
     }
 
     // src cfg error
-    match pubg::input::kafka::check_cfg(&req.src_cfg) {
-        Ok(_) => (),
-        Err(err) => {
-            error!("update task src cfg {} error{:?}", &req.src_cfg, err);
-            return Whortleberry {
-                err_msg: format!("invalid src cfg  {} error:{:?}", req.src_cfg, err),
-                err_no: 400,
-                data: None,
-            };
-        }
-    };
+    if let Err(err) = serde_json::from_value::<KafkaSrcCfg>(req.src_cfg.clone()) {
+        error!("invalid src cfg expected json config {:?}", err);
+        return Whortleberry {
+            err_no: 400,
+            err_msg: format!("invalid json format config {:?}", err),
+            data: None,
+        };
+    }
 
     // check dst config
     match pubg::sink::kafka::check_dst_cfg(&req.dst_cfg) {
@@ -482,7 +449,17 @@ async fn update_task(
             };
         }
     }
-
+    let mut task = req.to_task();
+    match task::update_task(&state.conn, &mut task).await {
+        Err(err) => {
+            return Whortleberry {
+                err_msg: format!("update task {}  error:{:?}", req.id, err),
+                err_no: 400,
+                data: None,
+            };
+        }
+        _ => {}
+    }
     // update task
     // check task is ok
     info!("req ...{:?}", req);

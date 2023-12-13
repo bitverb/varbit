@@ -1,8 +1,9 @@
+use log::error;
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 use validator::Validate;
 
 use serde::{Deserialize, Serialize};
-use sqlx::FromRow;
+use sqlx::{FromRow, MySql, Pool};
 pub enum TaskStatus {
     // task create but not starting
     Created,
@@ -50,6 +51,100 @@ pub struct Task {
     pub deleted_at: i64,
     // tasking config
     pub tasking_cfg: String,
+}
+
+pub async fn fetch_task_list(
+    conn: &Pool<MySql>,
+    status: i32,
+    page_size: i32,
+    page: i32,
+) -> Result<Vec<Task>, String> {
+    match sqlx::query_as::<MySql, Task>("SELECT * FROM task WHERE status = ? limit ? offset ?")
+        .bind(status)
+        .bind(page_size)
+        .bind(page * page_size)
+        .fetch_all(conn)
+        .await
+    {
+        Err(err) => Err(format!("unable to find task error {:?}", err)),
+        Ok(res) => Ok(res),
+    }
+}
+
+pub async fn update_task(conn: &Pool<MySql>, task: &mut Task) -> Result<i32, String> {
+    match sqlx::query(
+        r#"UPDATE task SET name =?,
+        src_type =?,
+         src_cfg=?,
+         dst_type=?,
+         dst_cfg=?,
+         tasking_cfg=?,
+         updated_at = ?
+         WHERE id =?"#,
+    )
+    .bind(&task.name)
+    .bind(&task.src_type)
+    .bind(&task.src_cfg)
+    .bind(&task.dst_type)
+    .bind(&task.dst_cfg)
+    .bind(&task.tasking_cfg)
+    .bind(
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as i64,
+    )
+    .bind(&task.id)
+    .execute(conn)
+    .await
+    {
+        Ok(v) => Ok(v.rows_affected() as i32),
+        Err(err) => Err(format!(
+            "update task id {} error:{:?}",
+            task.id.clone(),
+            err
+        )),
+    }
+}
+
+pub async fn create_task(conn: &Pool<MySql>, task: &mut Task) -> Result<(), String> {
+    match sqlx::query(
+        r###"INSERT INTO task (
+        id,
+        name,
+        last_heartbeat,
+        src_type,
+        dst_type,
+        src_cfg,
+        dst_cfg,
+        status,
+        created_at,
+        updated_at,
+        deleted_at,
+        tasking_cfg) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)"###,
+    )
+    .bind(&task.id)
+    .bind(&task.name)
+    .bind(&task.last_heartbeat)
+    .bind(&task.src_type)
+    .bind(&task.dst_type)
+    .bind(&task.src_cfg)
+    .bind(&task.dst_cfg)
+    .bind(&task.status)
+    .bind(&task.created_at)
+    .bind(&task.updated_at)
+    .bind(&task.deleted_at)
+    .bind(&task.tasking_cfg)
+    .execute(conn)
+    .await
+    {
+        Ok(_) => Ok(()),
+
+        Err(err) => {
+            error!("create task error {:?}", err);
+            Err(format!("insert task {} error {:?}", task.id.clone(), err))
+        }
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone, Validate)]
@@ -122,4 +217,18 @@ pub struct UpdateTaskRequest {
     pub dst_cfg: serde_json::Value,
     /// tasking cfg json format
     pub tasking_cfg: serde_json::Value,
+}
+
+impl UpdateTaskRequest {
+    pub fn to_task(&self) -> Task {
+        let mut task = Task::default();
+        task.id = self.id.clone();
+        task.name = self.name.clone();
+        task.dst_cfg = self.dst_cfg.to_string();
+        task.src_cfg = self.src_cfg.to_string();
+        task.src_type = self.src_type.to_string();
+        task.dst_type = self.dst_type.to_string();
+        task.tasking_cfg = self.tasking_cfg.to_string();
+        return task;
+    }
 }

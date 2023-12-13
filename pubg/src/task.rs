@@ -106,6 +106,7 @@ struct InputKafkaConfigMeta {
     pub broker: String,
     /// topic
     pub topic: String,
+    
 }
 
 pub fn check_kafka_src(cfg: &String) -> Result<(), String> {
