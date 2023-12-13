@@ -448,6 +448,34 @@ async fn update_task(
             data: None,
         };
     }
+
+    // src cfg error
+    match pubg::input::kafka::check_cfg(&req.src_cfg) {
+        Ok(_) => (),
+        Err(err) => {
+            error!("update task src cfg {} error{:?}", &req.src_cfg, err);
+            return Whortleberry {
+                err_msg: format!("invalid src cfg  {} error:{:?}", req.src_cfg, err),
+                err_no: 400,
+                data: None,
+            };
+        }
+    };
+
+    // check dst config
+    match pubg::sink::kafka::check_dst_cfg(&req.dst_cfg) {
+        Ok(_) => (),
+        Err(err) => {
+            error!("update task dst cfg {} error{:?}", &req.src_cfg, err);
+            return Whortleberry {
+                err_msg: format!("invalid dst cfg  {} error:{:?}", req.src_cfg, err),
+                err_no: 400,
+                data: None,
+            };
+        }
+    };
+
+    // check task is ok
     info!("req ...{:?}", req);
     Whortleberry {
         err_msg: "success".to_owned(),

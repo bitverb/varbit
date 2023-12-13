@@ -96,9 +96,9 @@ impl Task {
     pub fn from_update_task(req: UpdateTaskRequest) -> Self {
         let mut s = Task::default();
         s.id = req.id.clone();
-        s.dst_cfg = req.dst_cfg.clone();
+        s.dst_cfg = req.dst_cfg.to_string();
         s.dst_type = req.dst_type.clone();
-        s.src_cfg = req.src_cfg.clone();
+        s.src_cfg = req.src_cfg.to_string();
         s.src_type = req.src_type.clone();
         s.tasking_cfg = req.tasking_cfg.clone();
         s.status = TaskStatus::Cancel.get_status();
@@ -115,11 +115,11 @@ pub struct UpdateTaskRequest {
     // src type like kafka
     pub src_type: String,
     // src config json format
-    pub src_cfg: String,
+    pub src_cfg: serde_json::Value,
     // dst type like kafka
     pub dst_type: String,
     /// dst cfg json format
-    pub dst_cfg: String,
+    pub dst_cfg: serde_json::Value,
     /// tasking cfg json format
     pub tasking_cfg: String,
 }

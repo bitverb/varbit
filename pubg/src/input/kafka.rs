@@ -64,8 +64,8 @@ pub struct KafkaSourceConfig {
     pub meta: KafkaSourceMeta,
 }
 
-pub fn check_cfg(cfg: &String) -> Result<(), String> {
-    match serde_json::from_str::<KafkaSourceConfig>(cfg) {
+pub fn check_cfg(cfg: &serde_json::Value) -> Result<(), String> {
+    match serde_json::from_value::<KafkaSourceConfig>(cfg.clone()) {
         Ok(_) => Ok(()),
         Err(err) => Err(format!("cfg {} is invalid {:?}", cfg, err)),
     }
