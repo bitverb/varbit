@@ -16,8 +16,6 @@ use schema::init_database;
 
 use log::{error, info};
 
-use serde::Deserialize;
-
 use std::{collections::HashMap, net::TcpListener};
 
 use tower_http::{
@@ -27,7 +25,7 @@ use tower_http::{
 
 use crate::handler::{
     cancel_task, connect_testing, create_task, fetch_count, fetch_task_list, start_tasking,
-    task_debug, update_task, AppState,
+    task_debug, task_debug_preview, update_task, AppState,
 };
 
 pub async fn start(app_conf: conf::app::AppConfig) -> anyhow::Result<()> {
@@ -67,6 +65,7 @@ pub async fn start(app_conf: conf::app::AppConfig) -> anyhow::Result<()> {
         .route("/task/update", put(update_task))
         .route("/task/start", get(start_tasking))
         .route("/task/debug", post(task_debug))
+        .route("/task/debug/preview", post(task_debug_preview))
         .fallback(handler_404)
         .with_state(state);
 
@@ -103,9 +102,8 @@ pub async fn time_out_handler(err: BoxError) -> Whortleberry<HashMap<String, Str
         String::from("ts"),
         chrono::Utc::now().timestamp().to_string(),
     );
-    data.insert(String::from("info"), "欢迎使用".to_owned());
+    data.insert(String::from("info"), "welcome".to_owned());
     error!("error info {:?}", err);
-    info!("error info {:?}", err);
     if err.is::<tower::timeout::error::Elapsed>() {
         Whortleberry {
             err_no: 404,

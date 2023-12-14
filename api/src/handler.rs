@@ -1,3 +1,5 @@
+use std::collections::{HashMap, HashSet};
+
 use async_trait::async_trait;
 use axum::{
     extract::{Query, State},
@@ -527,12 +529,41 @@ pub struct DebugRequest {
     pub debug: serde_json::Value,
 }
 
-pub async fn task_debug(Json(req): Json<DebugRequest>) -> Whortleberry<service::task::json::CRHRes> {
+pub async fn task_debug(
+    Json(req): Json<DebugRequest>,
+) -> Whortleberry<service::task::json::CRHRes> {
     let p = service::task::json::ChrysaetosBitFlow::from_sep(req.sep.to_owned());
     let v = p.property(req.debug.clone());
     Whortleberry {
         err_msg: "success".to_owned(),
         err_no: 10_000,
         data: v,
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct TaskDebugPreviewRequest {
+    pub sep: String,
+    pub debug: serde_json::Value,
+    pub ignore: HashSet<String>,
+    pub fold: HashSet<String>,
+    pub max_depth: i32,
+}
+pub async fn task_debug_preview(
+    Json(req): Json<TaskDebugPreviewRequest>,
+) -> Whortleberry<Vec<HashMap<String, serde_json::Value>>> {
+    let parser = service::task::json::ChrysaetosBit::new_cfg(
+        "debug_preview".to_owned(),
+        req.sep.to_owned(),
+        req.max_depth.clone(),
+        req.fold.clone(),
+        req.ignore,
+    );
+
+    let res = parser.parse(&"debug_preview".to_owned(), &req.debug);
+    Whortleberry {
+        err_msg: "success".to_owned(),
+        err_no: 10_000,
+        data: res,
     }
 }
