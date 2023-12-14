@@ -118,7 +118,6 @@ pub async fn count_task(conn: &Pool<MySql>, status: i32) -> Result<i64, String> 
     Ok(count)
 }
 
-
 pub async fn get_running_task() -> Result<Vec<Task>, String> {
     let page_size = 100;
     let mut page = 0;
