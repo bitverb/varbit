@@ -19,3 +19,4 @@ sqlx = { version = "0.7", features = [
 once_cell = { version = "1.19.0" }
 async-trait = { version = "0.1.74" }
 log = { version = "0.4.20" }
+mongodb = { version = "2.7.0", features = ["tokio-sync"] }

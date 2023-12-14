@@ -2057,6 +2057,7 @@ dependencies = [
  "async-trait",
  "conf",
  "log",
+ "mongodb",
  "once_cell",
  "serde",
  "serde_json",
