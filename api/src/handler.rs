@@ -13,7 +13,7 @@ use pubg::{
     CloseTask,
 };
 use schema::{
-    task::{update_task_status, Task, TaskStatus},
+    task::{get_running_task, update_task_status, Task, TaskStatus},
     DB_INSTANCE,
 };
 use serde::{Deserialize, Serialize};
@@ -495,6 +495,67 @@ pub async fn start_tasking(
     };
 }
 
+pub async fn continue_running_task() {
+    if let Ok(task_list) = get_running_task().await {
+        for task in &task_list {
+            info!("continue running task {}", task.id.clone());
+            let src_cfg: KafkaSrcCfg =
+                match serde_json::from_str::<KafkaSrcCfg>(&task.src_cfg.as_str()) {
+                    Ok(v) => v,
+                    Err(err) => {
+                        error!(
+                            "failed to un marshal src cfg {:?} error{:?}",
+                            task.src_cfg, err
+                        );
+                        continue;
+                    }
+                };
+
+            let kafka_src_cfg = KafkaSourceConfig {
+                broker: src_cfg.broker.clone(),
+                group_id: format!("verb-{}", task.id.to_owned()),
+                decoder: src_cfg.decoder.to_owned(),
+                topic: src_cfg.topic.to_owned(),
+                meta: KafkaSourceMeta {
+                    task_id: task.id.to_owned(),
+                },
+            };
+
+            let dst_cfg = match check_dst_cfg(&serde_json::from_str(&task.dst_cfg).unwrap()) {
+                Ok(v) => v,
+                Err(err) => {
+                    error!(
+                        "failed to un marshal dst cfg {:?} error{:?}",
+                        task.dst_cfg, err
+                    );
+                    continue;
+                }
+            };
+            let kafka_sink_cfg = KafkaDstConfig {
+                broker: dst_cfg.broker.to_owned(),
+                topic: dst_cfg.topic.to_owned(),
+                encoder: "json".to_owned(),
+                meta: KafkaDstMeta {
+                    task_id: task.id.to_owned(),
+                },
+            };
+
+            info!(
+                "task {} src_cfg {:#?} dst_cfg {:#?}",
+                task.id, kafka_src_cfg, kafka_sink_cfg
+            );
+            dispatch_tasking(
+                task.id.to_owned(),
+                task.src_type.to_owned(),
+                &serde_json::json!(&kafka_src_cfg),
+                task.dst_type.to_owned(),
+                &serde_json::json!(&kafka_sink_cfg),
+                Box::new(CloseTaskImpl {}),
+            )
+            .await;
+        }
+    }
+}
 struct CloseTaskImpl {}
 
 #[async_trait]

@@ -7,6 +7,7 @@ edition = "2021"
 
 [dependencies]
 conf = { path = "../conf" }
+
 serde = { version = "1.0.189", features = ["default"] }
 serde_json = { version = "1.0.107", features = ["default"] }
 sqlx = { version = "0.7", features = [

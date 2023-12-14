@@ -118,6 +118,39 @@ pub async fn count_task(conn: &Pool<MySql>, status: i32) -> Result<i64, String> 
     Ok(count)
 }
 
+
+pub async fn get_running_task() -> Result<Vec<Task>, String> {
+    let page_size = 100;
+    let mut page = 0;
+    let mut task_list: Vec<Task> = vec![];
+    let conn = DB_INSTANCE.get().unwrap();
+    loop {
+        match fetch_task_list(
+            conn,
+            TaskStatus::Running.get_status(),
+            page_size.clone(),
+            page.clone(),
+        )
+        .await
+        {
+            Ok(v) => {
+                let mut v = v;
+                task_list.append(&mut v);
+                if v.len() < (page_size as usize) {
+                    break;
+                }
+                page += 1;
+            }
+            Err(err) => {
+                error!("failed to get task {}", err);
+                break;
+            }
+        }
+    }
+
+    Ok(task_list)
+}
+
 pub async fn update_task_status(
     conn: &Pool<MySql>,
     id: String,

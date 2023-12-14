@@ -25,13 +25,14 @@ use tower_http::{
 
 use crate::handler::{
     cancel_task, connect_testing, create_task, fetch_count, fetch_task_list, start_tasking,
-    task_debug, task_debug_preview, update_task, AppState,
+    task_debug, task_debug_preview, update_task, AppState, continue_running_task,
 };
 
 pub async fn start(app_conf: conf::app::AppConfig) -> anyhow::Result<()> {
     let state: AppState = AppState {
         conn: init_database(app_conf.data.db.clone()).await,
     };
+    continue_running_task().await;
 
     let cors: CorsLayer = CorsLayer::new()
         .allow_methods(vec![
