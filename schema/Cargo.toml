@@ -1,0 +1,21 @@
+[package]
+name = "schema"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+conf = { path = "../conf" }
+serde = { version = "1.0.189", features = ["default"] }
+serde_json = { version = "1.0.107", features = ["default"] }
+sqlx = { version = "0.7", features = [
+    "runtime-tokio-rustls",
+    "mysql",
+    "chrono",
+    "json",
+    "rust_decimal",
+] }
+once_cell = { version = "1.19.0" }
+async-trait = { version = "0.1.74" }
+log = { version = "0.4.20" }

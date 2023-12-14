@@ -9,7 +9,7 @@ use serde::Deserialize;
 use tokio::sync::mpsc;
 use tokio_context::context;
 
-use crate::{core::Msg, input::Src, sink::Dst, DST_PLUGIN, SRC_PLUGIN};
+use crate::{core::Msg, input::Src, sink::Dst, CloseTask, DST_PLUGIN, SRC_PLUGIN};
 
 pub struct Tasking {
     pub handle: context::Handle,
@@ -30,6 +30,7 @@ pub async fn dispatch_tasking(
     src_conf: &serde_json::Value,
     dst_type: String,
     dst_conf: &serde_json::Value,
+    after_close_task: Box<dyn CloseTask>,
 ) -> bool {
     let mut lock = GLOBAL_TASKING.lock().unwrap();
     if lock.contains_key(task_id.to_owned().as_str()) {
@@ -76,9 +77,10 @@ pub async fn dispatch_tasking(
     tokio::task::spawn(async move {
         tokio::select! {
             _ = ctx.done() =>{
-                info!("remove task {}",task_id_cp);
+                info!("remove task {}",task_id_cp.to_owned());
                 src_handler.abort(); // cancel src
-                remove_tasking(task_id_cp).await;
+                remove_tasking(task_id_cp.to_owned()).await;
+                after_close_task.close_task(task_id_cp).await;
                 // update task status
             }
         }

@@ -12,11 +12,12 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+pub mod core;
 pub mod input;
 pub mod sink;
 pub mod task;
-pub mod core;
 
+use async_trait::async_trait;
 use input::kafka::KafkaSrc;
 use lazy_static::lazy_static;
 
@@ -38,3 +39,13 @@ lazy_static! {
         Arc::new(Mutex::new(plugin))
     };
 }
+
+#[async_trait]
+pub trait CloseTask: Send + Sync {
+    async fn close_task(&self, task_id: String);
+}
+
+// #[async_trait]
+// pub trait HeartbeatHandler: Send + Sync {
+//     async fn heartbeat_handler(task_id: String);
+// }

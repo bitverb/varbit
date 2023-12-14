@@ -1,4 +1,4 @@
-use log::error;
+use log::{error, info};
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 use validator::Validate;
 
@@ -122,19 +122,27 @@ pub async fn update_task_status(
     id: String,
     status: i32, // update
 ) -> Result<i64, String> {
-    match sqlx::query(r#"UPDATE task SET status = ? AND updated_at = ? WHERE id = ?"#)
-        .bind(status)
+    info!("update task status id:{}, status:{}", id.clone(), status);
+    match sqlx::query(r#"UPDATE task SET status = ? , updated_at = ? WHERE id = ?"#)
+        .bind(&status)
         .bind(
-            SystemTime::now()
+            &(SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .unwrap()
-                .as_secs() as i64,
+                .as_secs() as i64),
         )
         .bind(&id)
         .execute(conn)
         .await
     {
-        Ok(v) => Ok(v.rows_affected() as i64),
+        Ok(v) => {
+            info!(
+                "update status task id {} rows affected {}",
+                id.clone(),
+                v.rows_affected()
+            );
+            Ok(v.rows_affected() as i64)
+        }
         Err(err) => Err(format!("update task id {} error:{:?}", id.clone(), err)),
     }
 }

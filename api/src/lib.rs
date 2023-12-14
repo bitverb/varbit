@@ -1,8 +1,9 @@
 /// api mod
-pub mod animal;
 pub mod flash;
 pub mod kafka;
 pub mod task;
+
+use async_trait::async_trait;
 
 use axum::{
     extract::{Query, State},
@@ -13,6 +14,7 @@ use axum::{
 
 use ::chrono::Local;
 use axum::BoxError;
+use schema::{DB_INSTANCE, init_database};
 use flash::Whortleberry;
 
 use log::{error, info};
@@ -20,17 +22,17 @@ use pubg::{
     input::kafka::{KafkaSourceConfig, KafkaSourceMeta},
     sink::kafka::{check_dst_cfg, DstConfigReq, KafkaDstConfig, KafkaDstMeta},
     task::{dispatch_tasking, task_running},
+    CloseTask,
 };
 use serde::{Deserialize, Serialize};
 use service::task::json::check_chrysaetos_bit_cfg;
 use sqlx::{
-    mysql::MySqlPoolOptions,
     types::chrono::{self},
     MySql, Pool,
 };
 use task::{NewTaskRequest, Task};
 
-use std::{collections::HashMap, net::TcpListener, time::Duration};
+use std::{collections::HashMap, net::TcpListener};
 
 use tower_http::{
     cors::{AllowOrigin, CorsLayer},
@@ -41,7 +43,7 @@ use crate::task::{update_task_status, TaskStatus};
 
 pub async fn start(app_conf: conf::app::AppConfig) -> anyhow::Result<()> {
     let state: AppState = AppState {
-        conn: build_db(app_conf.data.db.clone()).await,
+        conn: init_database(app_conf.data.db.clone()).await,
     };
 
     let cors: CorsLayer = CorsLayer::new()
@@ -163,35 +165,6 @@ pub struct Data {
 #[derive(Clone)]
 struct AppState {
     conn: Pool<MySql>, // 数据库链接信息
-}
-
-async fn build_db(db: conf::app::DbConfig) -> Pool<MySql> {
-    info!("dsn {}", db.dsn);
-    info!("max connections {}", db.connection);
-    info!("show sqlx logging {}", db.logging);
-    info!("connect timeout({})s", db.conn_timeout);
-    info!("acquire_timeout timeout({})s", db.acquire_timeout);
-    info!("idle_timeout timeout({})s", db.idle_sec);
-    info!("max_lifetime timeout({})s", db.life_time);
-
-    let opt: sqlx::pool::PoolOptions<MySql> = MySqlPoolOptions::new()
-        .max_connections(db.connection.clone())
-        .acquire_timeout(Duration::from_secs(db.acquire_timeout))
-        .idle_timeout(Duration::from_secs(db.idle_sec))
-        .max_lifetime(Duration::from_secs(db.life_time));
-
-    match opt.connect(&db.dsn.to_owned()).await {
-        Ok(pool) => {
-            info!("✅Connection to the database is successful!");
-            pool
-        }
-        Err(err) => {
-            panic!(
-                "🔥 Failed to connect to the  database dsn {:?}: {:?}",
-                db.dsn, err
-            );
-        }
-    }
 }
 
 /// create task
@@ -554,6 +527,7 @@ async fn start_tasking(
         &serde_json::json!(&kafka_src_cfg),
         task.dst_type.to_owned(),
         &serde_json::json!(&kafka_sink_cfg),
+        Box::new(CloseTaskImpl {}),
     )
     .await;
     // task_running(task_id)
@@ -581,6 +555,24 @@ async fn start_tasking(
         err_msg: "success".to_owned(),
         data: "success".to_owned(),
     };
+}
+
+struct CloseTaskImpl {}
+
+#[async_trait]
+impl CloseTask for CloseTaskImpl {
+    async fn close_task(&self, task_id: String) {
+        info!("update task {} status ", task_id.clone());
+        let conn = DB_INSTANCE.get().unwrap();
+        match update_task_status(conn, task_id.clone(), TaskStatus::Cancel.get_status()).await {
+            Err(err) => {
+                error!("update task {} error {:?}", task_id.clone(), err)
+            }
+            Ok(_) => {
+                info!("update task {} success", task_id.to_owned())
+            }
+        }
+    }
 }
 
 #[derive(Debug, Deserialize)]

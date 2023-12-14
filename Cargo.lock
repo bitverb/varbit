@@ -145,6 +145,7 @@ name = "api"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-trait",
  "axum",
  "axum-core",
  "chrono",
@@ -152,8 +153,10 @@ dependencies = [
  "lazy_static",
  "log",
  "mongodb",
+ "once_cell",
  "pubg",
  "rdkafka",
+ "schema",
  "serde",
  "serde_json",
  "service",
@@ -1628,9 +1631,9 @@ dependencies = [
 
 [[package]]
 name = "once_cell"
-version = "1.18.0"
+version = "1.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dd8b5dd2ae5ed71462c540258bedcb51965123ad7e7ccf4b9a8cafaa4a63576d"
+checksum = "3fdb12b2476b595f9358c5161aa467c2438859caa136dec86c26fdd2efe17b92"
 
 [[package]]
 name = "overload"
@@ -2170,6 +2173,19 @@ name = "ryu"
 version = "1.0.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1ad4cc8da4ef723ed60bced201181d83791ad433213d8c24efffda1eec85d741"
+
+[[package]]
+name = "schema"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "conf",
+ "log",
+ "once_cell",
+ "serde",
+ "serde_json",
+ "sqlx",
+]
 
 [[package]]
 name = "scopeguard"
@@ -3316,6 +3332,7 @@ dependencies = [
  "env_logger",
  "log",
  "pubg",
+ "schema",
  "serde",
  "service",
  "tokio",
