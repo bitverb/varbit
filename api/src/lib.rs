@@ -27,7 +27,7 @@ use tower_http::{
 
 use crate::handler::{
     cancel_task, connect_testing, create_task, fetch_count, fetch_task_list, start_tasking,
-    update_task, AppState,
+    task_debug, update_task, AppState,
 };
 
 pub async fn start(app_conf: conf::app::AppConfig) -> anyhow::Result<()> {
@@ -66,6 +66,7 @@ pub async fn start(app_conf: conf::app::AppConfig) -> anyhow::Result<()> {
         .route("/task/count", get(fetch_count).layer(cors.clone()))
         .route("/task/update", put(update_task))
         .route("/task/start", get(start_tasking))
+        .route("/task/debug", post(task_debug))
         .fallback(handler_404)
         .with_state(state);
 

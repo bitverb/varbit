@@ -337,7 +337,6 @@ pub mod json {
         name: String,
         property_type: String,
         props: Vec<CRHRes>,
-        son: Box<Option<CRHRes>>,
     }
 
     impl ChrysaetosBitFlow {
@@ -354,50 +353,44 @@ pub mod json {
                     debug!("obj is {}", serde_json::json!(m).to_string());
                     CRHRes {
                         name: "".to_owned(),
-                        property_type: OBJECT.to_string(),
-                        props: vec![],
-                        son: Box::new(Some(self.property_object(&m))),
+                        property_type: OBJECT.to_owned(),
+                        props: self.property_object(&m),
                     }
                 }
                 serde_json::Value::Array(l) => {
                     debug!("l is {}", serde_json::json!(l).to_string());
                     CRHRes {
                         name: "".to_owned(),
-                        property_type: ARRAY.to_string(),
-                        props: vec![],
-                        son: Box::new(Some(self.property_list(&l))),
+                        property_type: ARRAY.to_owned(),
+                        props: self.property_list(&l),
                     }
                 }
                 serde_json::Value::Number(_num) => CRHRes {
                     name: "".to_owned(),
                     property_type: NUMBER.to_string(),
                     props: vec![],
-                    son: Box::new(None),
                 },
                 serde_json::Value::Bool(_b) => CRHRes {
                     name: "".to_owned(),
                     property_type: BOOLEAN.to_string(),
                     props: vec![],
-                    son: Box::new(None),
                 },
                 serde_json::Value::String(_s) => CRHRes {
                     name: "".to_owned(),
                     property_type: STRING.to_string(),
                     props: vec![],
-                    son: Box::new(None),
                 },
 
                 serde_json::Value::Null => CRHRes {
                     name: "".to_owned(),
                     property_type: NULL.to_owned(),
                     props: vec![],
-                    son: Box::new(None),
                 },
             }
         }
 
         // parser object property
-        fn property_object(&self, obj: &serde_json::Map<String, serde_json::Value>) -> CRHRes {
+        fn property_object(&self, obj: &serde_json::Map<String, serde_json::Value>) -> Vec<CRHRes> {
             debug!("obj is {}", serde_json::json!(obj).to_string());
             let mut vc: Vec<CRHRes> = vec![];
             for (key, value) in obj {
@@ -405,105 +398,72 @@ pub mod json {
                     serde_json::Value::Object(m) => CRHRes {
                         name: key.to_owned(),
                         property_type: OBJECT.to_owned(),
-                        props: vec![],
-                        son: Box::new(Some(self.property_object(&m))),
+                        props: self.property_object(&m),
                     },
                     serde_json::Value::Array(l) => CRHRes {
                         name: key.to_owned(),
                         property_type: ARRAY.to_owned(),
-                        props: vec![],
-                        son: Box::new(Some(self.property_list(&l))),
+                        props: self.property_list(&l),
                     },
                     serde_json::Value::String(_s) => CRHRes {
                         name: key.to_owned(),
                         property_type: STRING.to_owned(),
                         props: vec![],
-                        son: Box::new(None),
                     },
                     serde_json::Value::Number(_n) => CRHRes {
                         name: key.to_owned(),
                         property_type: NUMBER.to_owned(),
                         props: vec![],
-                        son: Box::new(None),
                     },
                     serde_json::Value::Bool(_b) => CRHRes {
                         name: key.to_owned(),
                         property_type: BOOLEAN.to_owned(),
                         props: vec![],
-                        son: Box::new(None),
                     },
                     serde_json::Value::Null => CRHRes {
                         name: key.to_owned(),
                         property_type: NULL.to_owned(),
                         props: vec![],
-                        son: Box::new(None),
                     },
                 };
                 vc.push(data);
             }
-            CRHRes {
-                name: "".to_string(),
-                property_type: OBJECT.to_string(),
-                props: vc,
-                son: Box::new(None),
-            }
+            vc
         }
 
-        fn property_list(&self, list: &Vec<serde_json::Value>) -> CRHRes {
+        fn property_list(&self, list: &Vec<serde_json::Value>) -> Vec<CRHRes> {
             debug!("property_list is {}", serde_json::json!(list).to_string());
             if list.is_empty() {
-                return CRHRes {
+                return vec![CRHRes {
                     name: "".to_owned(),
                     property_type: NULL.to_owned(),
                     props: vec![],
-                    son: Box::new(None),
-                };
+                }];
             }
 
-            let data = match list.first().unwrap() {
-                serde_json::Value::Object(m) => CRHRes {
-                    name: "".to_owned(),
-                    property_type: OBJECT.to_owned(),
-                    props: vec![],
-                    son: Box::new(Some(self.property_object(&m))),
-                },
-                serde_json::Value::Array(l) => CRHRes {
-                    name: "".to_owned(),
-                    property_type: ARRAY.to_owned(),
-                    props: vec![],
-                    son: Box::new(Some(self.property_list(&l))),
-                },
-                serde_json::Value::String(_s) => CRHRes {
+            match list.first().unwrap() {
+                serde_json::Value::Object(m) => self.property_object(&m),
+                serde_json::Value::Array(l) => self.property_list(&l),
+                serde_json::Value::String(_s) => vec![CRHRes {
                     name: "".to_owned(),
                     property_type: STRING.to_owned(),
                     props: vec![],
-                    son: Box::new(None),
-                },
-                serde_json::Value::Number(_n) => CRHRes {
+                }],
+                serde_json::Value::Number(_n) => vec![CRHRes {
                     name: "".to_owned(),
                     property_type: NUMBER.to_owned(),
                     props: vec![],
-                    son: Box::new(None),
-                },
-                serde_json::Value::Bool(_b) => CRHRes {
+                }],
+                serde_json::Value::Bool(_b) => vec![CRHRes {
                     name: "".to_owned(),
                     property_type: BOOLEAN.to_owned(),
                     props: vec![],
-                    son: Box::new(None),
-                },
-                serde_json::Value::Null => CRHRes {
+                }],
+                serde_json::Value::Null => vec![CRHRes {
                     name: "".to_owned(),
                     property_type: NULL.to_owned(),
                     props: vec![],
-                    son: Box::new(None),
-                },
-            };
-
-            CRHRes {
-                name: "".to_owned(),
-                property_type: ARRAY.to_owned(),
-                props: vec![],
-                son: Box::new(Some(data)),
+                }],
             }
         }
     }

@@ -520,3 +520,19 @@ struct KafkaSrcCfg {
     /// topic
     pub topic: String, // topic
 }
+
+#[derive(Debug, Deserialize)]
+pub struct DebugRequest {
+    pub sep: String,
+    pub debug: serde_json::Value,
+}
+
+pub async fn task_debug(Json(req): Json<DebugRequest>) -> Whortleberry<service::task::json::CRHRes> {
+    let p = service::task::json::ChrysaetosBitFlow::from_sep(req.sep.to_owned());
+    let v = p.property(req.debug.clone());
+    Whortleberry {
+        err_msg: "success".to_owned(),
+        err_no: 10_000,
+        data: v,
+    }
+}
