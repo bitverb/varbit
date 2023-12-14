@@ -1,7 +1,7 @@
 use log::{error, info};
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use sqlx::{FromRow, MySql, Pool};
 pub enum TaskStatus {
     // task create but not starting
@@ -186,21 +186,6 @@ pub async fn create_task(conn: &Pool<MySql>, task: &mut Task) -> Result<(), Stri
     }
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
-pub struct NewTaskRequest {
-    // task name
-    pub name: String,
-    // src type like kafka
-    pub src_type: String,
-    // src config json format
-    pub src_cfg: serde_json::Value,
-    // dst type like kafka
-    pub dst_type: String,
-    /// dst cfg json format
-    pub dst_cfg: serde_json::Value,
-    // json format
-    pub tasking_cfg: serde_json::Value,
-}
 // json
 impl Task {
     pub fn from_task_detail(
@@ -231,72 +216,5 @@ impl Task {
             dst_cfg: dst_cfg.to_string(),
             tasking_cfg: tasking_cfg.to_string(),
         }
-    }
-
-    // pub fn from_task_detail(req: &NewTaskRequest) -> Self {
-    //     Self {
-    //         id: mongodb::bson::oid::ObjectId::new().to_hex(),
-    //         name: req.name.clone(),
-    //         last_heartbeat: Instant::now().elapsed().as_secs() as i64,
-    //         src_type: req.src_type.clone(),
-    //         dst_type: req.dst_type.clone(),
-    //         status: TaskStatus::Created.get_status(),
-    //         created_at: SystemTime::now()
-    //             .duration_since(UNIX_EPOCH)
-    //             .unwrap()
-    //             .as_secs() as i64,
-    //         updated_at: SystemTime::now()
-    //             .duration_since(UNIX_EPOCH)
-    //             .unwrap()
-    //             .as_secs() as i64,
-    //         deleted_at: 0,
-    //         src_cfg: req.src_cfg.to_string(),
-    //         dst_cfg: req.dst_cfg.to_string(),
-    //         tasking_cfg: req.tasking_cfg.to_string(),
-    //     }
-    // }
-
-    pub fn from_update_task(req: UpdateTaskRequest) -> Self {
-        let mut s = Task::default();
-        s.id = req.id.clone();
-        s.dst_cfg = req.dst_cfg.to_string();
-        s.dst_type = req.dst_type.clone();
-        s.src_cfg = req.src_cfg.to_string();
-        s.src_type = req.src_type.clone();
-        s.tasking_cfg = req.tasking_cfg.to_string();
-        s.status = TaskStatus::Cancel.get_status();
-        s
-    }
-}
-
-#[derive(Debug, Deserialize)]
-pub struct UpdateTaskRequest {
-    /// task id
-    pub id: String,
-    // task name
-    pub name: String,
-    // src type like kafka
-    pub src_type: String,
-    // src config json format
-    pub src_cfg: serde_json::Value,
-    // dst type like kafka
-    pub dst_type: String,
-    /// dst cfg json format
-    pub dst_cfg: serde_json::Value,
-    /// tasking cfg json format
-    pub tasking_cfg: serde_json::Value,
-}
-
-impl UpdateTaskRequest {
-    pub fn to_task(&self) -> Task {
-        let mut task = Task::default();
-        task.id = self.id.clone();
-        task.name = self.name.clone();
-        task.dst_cfg = self.dst_cfg.to_string();
-        task.src_cfg = self.src_cfg.to_string();
-        task.src_type = self.src_type.to_string();
-        task.dst_type = self.dst_type.to_string();
-        task.tasking_cfg = self.tasking_cfg.to_string();
-        return task;
     }
 }
