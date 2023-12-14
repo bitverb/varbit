@@ -7,6 +7,7 @@ edition = "2021"
 
 [dependencies]
 service = { path = "../service" }
+schema = {path = "../schema"}
 
 lazy_static = { version = "1.4.0" }
 rdkafka = { version = "0.25", features = ["cmake-build"] }

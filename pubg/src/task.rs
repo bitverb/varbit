@@ -1,10 +1,12 @@
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex},
+    time::Duration,
 };
 
 use lazy_static::lazy_static;
 use log::{error, info};
+use schema::task::update_task_heartbeat;
 use serde::Deserialize;
 use tokio::sync::mpsc;
 use tokio_context::context;
@@ -74,11 +76,20 @@ pub async fn dispatch_tasking(
     let (_, mut handle) = context::Context::new();
     let mut ctx = handle.spawn_ctx();
     let task_id_cp = task_id.clone();
+    let heartbeat_task_id = task_id.clone();
+    // heartbeat future task
+    let heartbeat_handler = tokio::spawn(async move {
+        loop {
+            _ = tokio::time::sleep(Duration::from_secs(30)).await;
+            heartbeat_handler(heartbeat_task_id.clone()).await;
+        }
+    });
     tokio::task::spawn(async move {
         tokio::select! {
             _ = ctx.done() =>{
                 info!("remove task {}",task_id_cp.to_owned());
                 src_handler.abort(); // cancel src
+                heartbeat_handler.abort();
                 remove_tasking(task_id_cp.to_owned()).await;
                 after_close_task.close_task(task_id_cp).await;
                 // update task status
@@ -126,5 +137,20 @@ pub fn check_kafka_src(cfg: &String) -> Result<(), String> {
     match serde_json::from_str::<InputKafkaConfigMeta>(cfg.as_str()) {
         Ok(_) => Ok(()),
         Err(err) => Err(format!("invalid kafka input cfg {:?}", err)),
+    }
+}
+
+async fn heartbeat_handler(task_id: String) {
+    info!("update task heartbeat {}", task_id.to_owned());
+    match update_task_heartbeat(task_id.to_owned()).await {
+        Ok(_) => (),
+        Err(err) => {
+            error!(
+                "update task {} heartbeat error {:?}",
+                task_id.to_owned(),
+                err
+            );
+            ()
+        }
     }
 }

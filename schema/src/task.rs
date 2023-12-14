@@ -3,6 +3,8 @@ use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 use serde::Serialize;
 use sqlx::{FromRow, MySql, Pool};
+
+use crate::DB_INSTANCE;
 pub enum TaskStatus {
     // task create but not starting
     Created,
@@ -146,6 +148,37 @@ pub async fn update_task_status(
     }
 }
 
+pub async fn update_task_heartbeat(task_id: String) -> Result<(), String> {
+    let conn = DB_INSTANCE.get().unwrap();
+    match sqlx::query(
+        r#"UPDATE task SET 
+    last_heartbeat = ?,
+    updated_at = ?
+    WHERE id =?"#,
+    )
+    .bind(
+        &(SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as i64),
+    )
+    .bind(
+        &(SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as i64),
+    )
+    .bind(&task_id)
+    .execute(conn)
+    .await
+    {
+        Ok(_) => Ok(()),
+        Err(err) => {
+            error!("update task {} heartbeat error {:?}", task_id, err);
+            Err(format!("error {:?}", err))
+        }
+    }
+}
 pub async fn create_task(conn: &Pool<MySql>, task: &mut Task) -> Result<(), String> {
     match sqlx::query(
         r###"INSERT INTO task (

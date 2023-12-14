@@ -1845,6 +1845,7 @@ dependencies = [
  "lazy_static",
  "log",
  "rdkafka",
+ "schema",
  "serde",
  "serde_json",
  "service",

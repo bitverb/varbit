@@ -2,6 +2,7 @@ use std::vec;
 
 use async_trait::async_trait;
 use log::{debug, error, info, warn};
+use schema::task::update_task_heartbeat;
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc;
 
@@ -207,8 +208,5 @@ impl Src for KafkaSrc {
 
     fn src_name(&self) -> String {
         "kafka".to_owned()
-    }
-    async fn heartbeat_handler(&self, task_id: String) {
-        info!("update task heartbeat {}", task_id.to_owned());
     }
 }
