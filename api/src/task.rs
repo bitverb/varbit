@@ -107,6 +107,38 @@ pub async fn update_task(conn: &Pool<MySql>, task: &mut Task) -> Result<i32, Str
     }
 }
 
+pub async fn count_task(conn: &Pool<MySql>, status: i32) -> Result<i64, String> {
+    let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM task WHERE status = ?")
+        .bind(status)
+        .fetch_one(conn)
+        .await
+        .unwrap();
+
+    Ok(count)
+}
+
+pub async fn update_task_status(
+    conn: &Pool<MySql>,
+    id: String,
+    status: i32, // update
+) -> Result<i64, String> {
+    match sqlx::query(r#"UPDATE task SET status = ? AND updated_at = ? WHERE id = ?"#)
+        .bind(status)
+        .bind(
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs() as i64,
+        )
+        .bind(&id)
+        .execute(conn)
+        .await
+    {
+        Ok(v) => Ok(v.rows_affected() as i64),
+        Err(err) => Err(format!("update task id {} error:{:?}", id.clone(), err)),
+    }
+}
+
 pub async fn create_task(conn: &Pool<MySql>, task: &mut Task) -> Result<(), String> {
     match sqlx::query(
         r###"INSERT INTO task (

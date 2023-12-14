@@ -6,13 +6,13 @@ pub mod task;
 
 use axum::{
     extract::{Query, State},
-    http::{HeaderMap, Method},
+    http::{HeaderValue, Method},
     routing::{get, post, put},
     Json, Router,
 };
 
-use axum::BoxError;
 use ::chrono::Local;
+use axum::BoxError;
 use flash::Whortleberry;
 
 use log::{error, info};
@@ -33,9 +33,11 @@ use task::{NewTaskRequest, Task};
 use std::{collections::HashMap, net::TcpListener, time::Duration};
 
 use tower_http::{
-    cors::{self, CorsLayer},
+    cors::{AllowOrigin, CorsLayer},
     limit::RequestBodyLimitLayer,
 };
+
+use crate::task::{update_task_status, TaskStatus};
 
 pub async fn start(app_conf: conf::app::AppConfig) -> anyhow::Result<()> {
     let state: AppState = AppState {
@@ -43,17 +45,34 @@ pub async fn start(app_conf: conf::app::AppConfig) -> anyhow::Result<()> {
     };
 
     let cors: CorsLayer = CorsLayer::new()
-        .allow_methods(vec![Method::GET, Method::POST, Method::PUT])
-        .allow_origin(cors::Any);
+        .allow_methods(vec![
+            Method::GET,
+            Method::POST,
+            Method::PUT,
+            Method::OPTIONS,
+        ])
+        .allow_origin(AllowOrigin::list([
+            "http://localhost:5173/*".parse::<HeaderValue>().unwrap(),
+            "http://localhost:8080/*".parse::<HeaderValue>().unwrap(),
+            "http://127.0.0.1:5173/*".parse::<HeaderValue>().unwrap(),
+            "http://127.0.0.1:8080".parse::<HeaderValue>().unwrap(),
+            "http://0.0.0.0:5173/*".parse::<HeaderValue>().unwrap(),
+        ]));
     let limit: RequestBodyLimitLayer = RequestBodyLimitLayer::new(1024 * 1024 * 10);
 
+    // let cors = CorsLayer::new()
+    // .allow_methods(vec![Method::GET, Method::POST, Method::OPTIONS])
+    // .allow_origin(Any)
+    // .allow_credentials(false);
+
     let app = Router::new()
+        .layer(cors.clone())
         .layer(limit)
-        .layer(cors)
         .route("/task/cancel", post(cancel_task))
         .route("/task/new", post(create_task))
         .route("/connect_testing", post(connect_testing))
-        .route("/task/list", get(fetch_task_list))
+        .route("/task/list", get(fetch_task_list).layer(cors.clone()))
+        .route("/task/count", get(fetch_count).layer(cors.clone()))
         .route("/task/update", put(update_task))
         .route("/task/start", get(start_tasking))
         .fallback(handler_404)
@@ -75,7 +94,7 @@ pub async fn handler_404() -> Whortleberry<HashMap<String, String>> {
     let mut data = HashMap::new();
     data.insert(
         String::from("ts"),
-        Local::now().format("%Y-%m-%d %H:%M:%S.%3f").to_string()
+        Local::now().format("%Y-%m-%d %H:%M:%S.%3f").to_string(),
     );
     data.insert(String::from("info"), "welcome use freebit".to_owned());
 
@@ -303,6 +322,34 @@ async fn connect_testing(Json(req): Json<ConnectTestingRequest>) -> Whortleberry
     }
 }
 
+#[derive(Debug, Deserialize)]
+struct FetchCountReq {
+    status: i32,
+}
+async fn fetch_count(
+    state: State<AppState>,
+    Query(req): Query<FetchCountReq>,
+) -> Whortleberry<Option<i64>> {
+    match task::count_task(&state.conn, req.status).await {
+        Err(err) => {
+            error!(
+                "failed to count task, status:{}  error:{:?}",
+                req.status, err
+            );
+            Whortleberry {
+                err_msg: "success".to_owned(),
+                err_no: 10_000,
+                data: None,
+            }
+        }
+        Ok(count) => Whortleberry {
+            err_msg: "success".to_owned(),
+            err_no: 10_000,
+            data: Some(count),
+        },
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 struct FetchTaskListReq {
     pub status: i32,
@@ -510,6 +557,23 @@ async fn start_tasking(
     )
     .await;
     // task_running(task_id)
+    match update_task_status(
+        &state.conn,
+        task.id.clone(),
+        TaskStatus::Running.get_status(),
+    )
+    .await
+    {
+        Ok(_) => (),
+        Err(err) => {
+            error!("update task {} status error {:?}", task.id.clone(), err);
+            return Whortleberry {
+                err_no: 10_109,
+                err_msg: "failed".to_owned(),
+                data: format!("unable to start task {:?}", err),
+            };
+        }
+    }
 
     // check task is exists
     return Whortleberry {

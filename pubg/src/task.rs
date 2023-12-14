@@ -4,7 +4,7 @@ use std::{
 };
 
 use lazy_static::lazy_static;
-use log::info;
+use log::{error, info};
 use serde::Deserialize;
 use tokio::sync::mpsc;
 use tokio_context::context;
@@ -33,6 +33,7 @@ pub async fn dispatch_tasking(
 ) -> bool {
     let mut lock = GLOBAL_TASKING.lock().unwrap();
     if lock.contains_key(task_id.to_owned().as_str()) {
+        error!("task {} is running", task_id.clone());
         return false;
     }
 
@@ -40,9 +41,14 @@ pub async fn dispatch_tasking(
 
     let mut _dst: std::sync::MutexGuard<'_, HashMap<String, Arc<Box<dyn Dst + Send + Sync>>>> =
         DST_PLUGIN.lock().unwrap();
+    if !_dst.contains_key(dst_type.as_str()) {
+        error!("not found dst_type {}", dst_type);
+        return false;
+    }
     let _dst = _dst.get(dst_type.to_owned().as_str()).unwrap().clone();
     let dst_conf = dst_conf.clone();
     let task_id_2_dst = task_id.clone();
+    // start dst task
     let dst_handler = tokio::task::spawn(async move {
         _dst.to_dst(task_id_2_dst.clone(), dst_conf.clone(), _tx)
             .await;
@@ -50,6 +56,11 @@ pub async fn dispatch_tasking(
 
     let mut _data: std::sync::MutexGuard<'_, HashMap<String, Arc<Box<dyn Src + Send + Sync>>>> =
         SRC_PLUGIN.lock().unwrap();
+    if !_data.contains_key(src_type.as_str()) {
+        error!("not found src_type {}", src_type);
+        dst_handler.abort(); // close dst task
+        return false;
+    }
     let source = _data.get(src_type.to_owned().as_str()).unwrap();
     let source = source.clone();
     let task_id_2_src = task_id.clone();
@@ -68,6 +79,7 @@ pub async fn dispatch_tasking(
                 info!("remove task {}",task_id_cp);
                 src_handler.abort(); // cancel src
                 remove_tasking(task_id_cp).await;
+                // update task status
             }
         }
     });
@@ -106,7 +118,6 @@ struct InputKafkaConfigMeta {
     pub broker: String,
     /// topic
     pub topic: String,
-    
 }
 
 pub fn check_kafka_src(cfg: &String) -> Result<(), String> {
