@@ -1,5 +1,5 @@
 [package]
-name = "verb"
+name = "varbit"
 version = "0.1.0"
 edition = "2021"
 authors = ["xx <2356450144@qq.com>"]
@@ -14,7 +14,7 @@ api = { path = "./api" }
 conf = { path = "./conf" }
 service = { path = "./service" }
 pubg = { path = "./pubg" }
-schema = {path = "./schema"}
+schema = { path = "./schema" }
 
 anyhow = { version = "1.0.75", features = ["default"] }
 serde = { version = "1.0.189", features = ["default"] }

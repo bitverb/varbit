@@ -8,7 +8,7 @@ use log::info;
 #[command(author = "xx", version = "0.1.0", about, long_about = None, next_line_help = true)]
 struct Args {
     /// app name
-    #[arg(short, long, default_value = "verb")]
+    #[arg(short, long, default_value = "varbit")]
     name: String,
 
     /// listen port
