@@ -107,13 +107,13 @@ pub async fn time_out_handler(err: BoxError) -> Whortleberry<HashMap<String, Str
     error!("error info {:?}", err);
     if err.is::<tower::timeout::error::Elapsed>() {
         Whortleberry {
-            err_no: 404,
+            err_no: 500,
             err_msg: "time out".to_string(),
             data,
         }
     } else {
         Whortleberry {
-            err_no: 404,
+            err_no: 500,
             err_msg: "time out".to_string(),
             data,
         }

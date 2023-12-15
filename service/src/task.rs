@@ -84,13 +84,12 @@ pub mod json {
             }
         }
         fn format_key(&self, pre_key: String, key: &String, depth: i32) -> String {
-            if pre_key.is_empty() && key.is_empty() {
-                return String::new();
-            }
+            let mut curr_key = format!("{}{}{}", pre_key, self.sep, key);
             if depth == 0 {
-                return key.clone();
+                curr_key = key.clone();
             }
-            format!("{}{}{}", pre_key, self.sep, key)
+            debug!("curr_key is {}", curr_key);
+            return curr_key;
         }
 
         fn get_sep(&self) -> &String {
@@ -160,10 +159,34 @@ pub mod json {
             }
 
             for oj in obj {
+                let pk = self.format_key(pre_key.to_owned(), &"".to_owned(), depth + 1);
+                if self.fold.contains(pk.clone().as_str()) {
+                    debug!(
+                        "[{MOD_NAME}] task {} g_id {} parser_list fold pk {}",
+                        self.task_id,
+                        g_id,
+                        pk.to_owned()
+                    );
+                    let mut data = curr.clone();
+                    data.insert(pk, oj.clone());
+                    tmp_result_list.push(data);
+                    continue;
+                }
+
+                if self.ignore.contains(pk.clone().as_str()) {
+                    debug!(
+                        "[{MOD_NAME}] task {} g_id {} parser_list ignore pk {}",
+                        self.task_id,
+                        g_id,
+                        pk.to_owned()
+                    );
+                    continue;
+                }
+
                 match oj {
                     serde_json::Value::Object(_obj) => {
                         let mut result: Vec<HashMap<String, serde_json::Value>> =
-                            self.parse_object(g_id, &_obj, pre_key, curr, depth + 1);
+                            self.parse_object(g_id, &_obj, &pk, curr, depth + 1);
                         tmp_result_list.append(&mut result);
                     }
                     serde_json::Value::Array(_list) => {
@@ -200,6 +223,10 @@ pub mod json {
                 }
             }
 
+            // if tmp_result_list is empty
+            if tmp_result_list.is_empty() {
+                tmp_result_list.push(curr.clone());
+            }
             return tmp_result_list;
         }
 
@@ -442,8 +469,16 @@ pub mod json {
             }
 
             match list.first().unwrap() {
-                serde_json::Value::Object(m) => self.property_object(&m),
-                serde_json::Value::Array(l) => self.property_list(&l),
+                serde_json::Value::Object(m) => vec![CRHRes {
+                    name: "".to_owned(),
+                    property_type: OBJECT.to_owned(),
+                    props: self.property_object(&m),
+                }],
+                serde_json::Value::Array(l) => vec![CRHRes {
+                    name: "".to_owned(),
+                    property_type: ARRAY.to_owned(),
+                    props: self.property_list(&l),
+                }],
                 serde_json::Value::String(_s) => vec![CRHRes {
                     name: "".to_owned(),
                     property_type: STRING.to_owned(),
