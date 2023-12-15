@@ -1,0 +1,29 @@
+version: "3.3"
+services:
+  mysql:
+    image: mysql:8.0.32
+    container_name: mysql_8_verb_v2
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: 123456
+      MYSQL_DATABASE: verb
+      MYSQL_USER: xx
+      MYSQL_PASSWORD: 123456
+    ports:
+      - "3308:3306"
+  zookeeper:
+    image: wurstmeister/zookeeper
+    container_name: zookeeper_verb_2
+    restart: always
+    ports:
+      - "12181:2181"
+  kafka:
+    image: wurstmeister/kafka
+    container_name: kafka_verb_2
+    restart: always
+    ports:
+      - "19092:9092"
+    environment:
+      KAFKA_ADVERTISED_HOST_NAME: localhost
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper_verb_2:12181
+      KAFKA_CREATE_TOPICS: "my-topic"

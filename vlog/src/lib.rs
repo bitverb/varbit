@@ -1,6 +1,6 @@
 /// log mod
 use chrono::Local;
-use env_logger::fmt::{Formatter, self};
+use env_logger::fmt::{self, Formatter};
 use log::Record;
 use std::io;
 use std::io::Write;
@@ -18,12 +18,12 @@ fn text_logger_formatter(buf: &mut Formatter, record: &Record) -> io::Result<()>
     );
 }
 
-pub fn init_log(output:fmt::Target) {
+pub fn init_log(output: fmt::Target, level: log::LevelFilter) {
     env_logger::builder()
         //log format
         .format(text_logger_formatter)
         // log level
-        .filter_level(log::LevelFilter::Info)
+        .filter_level(level)
         // output
         .target(output)
         //
