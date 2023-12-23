@@ -72,6 +72,21 @@ pub async fn fetch_task_list(
     }
 }
 
+pub async fn fetch_task(conn: &Pool<MySql>, task_id: &String) -> Result<Task, String> {
+    match sqlx::query_as::<MySql, Task>("SELECT * FROM task WHERE id = ?")
+        .bind(task_id)
+        .fetch_one(conn)
+        .await
+    {
+        Err(err) => Err(format!(
+            "unable to fetch task {} error:{:}",
+            task_id.to_owned(),
+            err
+        )),
+        Ok(res) => Ok(res),
+    }
+}
+
 pub async fn update_task(conn: &Pool<MySql>, task: &mut Task) -> Result<i32, String> {
     match sqlx::query(
         r#"UPDATE task SET name =?,

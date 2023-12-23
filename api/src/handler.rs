@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use async_trait::async_trait;
 use axum::{
-    extract::{Query, State},
+    extract::{Path, Query, State},
     Json,
 };
 use log::{error, info};
@@ -236,6 +236,31 @@ pub async fn fetch_task_list(
         err_msg: "".to_owned(),
         err_no: 10000,
         data: res,
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct FetchTaskRequest {
+    pub task_id: String,
+}
+pub async fn fetch_task(
+    state: State<AppState>,
+    Path(req): Path<FetchTaskRequest>,
+) -> Whortleberry<Option<Task>> {
+    match schema::task::fetch_task(&state.conn, &req.task_id).await {
+        Err(err) => {
+            error!("failed to find task {:?}", err);
+            Whortleberry {
+                err_msg: "failed to find task".to_owned(),
+                err_no: 10_200,
+                data: None,
+            }
+        }
+        Ok(res) => Whortleberry {
+            err_no: 10_000,
+            err_msg: "success".to_owned(),
+            data: Some(res),
+        },
     }
 }
 
