@@ -62,6 +62,10 @@ pub struct NewTaskRequest {
     pub dst_cfg: serde_json::Value,
     // json format
     pub tasking_cfg: serde_json::Value,
+    // debug 文本
+    pub debug_text: serde_json::Value,
+    // 节点属性
+    pub properties: serde_json::Value,
 }
 
 /// create task
@@ -142,6 +146,8 @@ pub async fn create_task(
         &req.src_cfg,
         &req.dst_cfg,
         &req.tasking_cfg,
+        &req.debug_text,
+        &req.properties,
     );
 
     info!("task is {:?}", task);
@@ -309,6 +315,9 @@ pub struct UpdateTaskRequest {
     pub dst_cfg: serde_json::Value,
     /// tasking cfg json format
     pub tasking_cfg: serde_json::Value,
+
+    pub debug_text: serde_json::Value,
+    pub properties: serde_json::Value,
 }
 
 impl UpdateTaskRequest {
@@ -321,6 +330,8 @@ impl UpdateTaskRequest {
         task.src_type = self.src_type.to_string();
         task.dst_type = self.dst_type.to_string();
         task.tasking_cfg = self.tasking_cfg.to_string();
+        task.debug_text = self.debug_text.to_string();
+        task.properties = self.properties.to_string();
         return task;
     }
 }

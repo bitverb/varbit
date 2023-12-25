@@ -52,6 +52,12 @@ pub struct Task {
     pub deleted_at: i64,
     // tasking config
     pub tasking_cfg: String,
+
+    // debug text
+    pub debug_text: String,
+
+    //  property
+    pub properties: String,
 }
 
 pub async fn fetch_task_list(
@@ -95,6 +101,8 @@ pub async fn update_task(conn: &Pool<MySql>, task: &mut Task) -> Result<i32, Str
          dst_type=?,
          dst_cfg=?,
          tasking_cfg=?,
+         debug_text = ?,
+         properties = ?,
          updated_at = ?
          WHERE id =?"#,
     )
@@ -104,6 +112,8 @@ pub async fn update_task(conn: &Pool<MySql>, task: &mut Task) -> Result<i32, Str
     .bind(&task.dst_type)
     .bind(&task.dst_cfg)
     .bind(&task.tasking_cfg)
+    .bind(&task.debug_text)
+    .bind(&task.properties)
     .bind(
         SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -236,11 +246,13 @@ pub async fn create_task(conn: &Pool<MySql>, task: &mut Task) -> Result<(), Stri
         dst_type,
         src_cfg,
         dst_cfg,
+        debug_text,
+        properties,
         status,
         created_at,
         updated_at,
         deleted_at,
-        tasking_cfg) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)"###,
+        tasking_cfg) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)"###,
     )
     .bind(&task.id)
     .bind(&task.name)
@@ -249,6 +261,8 @@ pub async fn create_task(conn: &Pool<MySql>, task: &mut Task) -> Result<(), Stri
     .bind(&task.dst_type)
     .bind(&task.src_cfg)
     .bind(&task.dst_cfg)
+    .bind(&task.debug_text)
+    .bind(&task.properties)
     .bind(&task.status)
     .bind(&task.created_at)
     .bind(&task.updated_at)
@@ -275,6 +289,8 @@ impl Task {
         src_cfg: &serde_json::Value,
         dst_cfg: &serde_json::Value,
         tasking_cfg: &serde_json::Value,
+        debug_text: &serde_json::Value,
+        properties: &serde_json::Value,
     ) -> Self {
         Self {
             id: mongodb::bson::oid::ObjectId::new().to_hex(),
@@ -295,6 +311,8 @@ impl Task {
             src_cfg: src_cfg.to_string(),
             dst_cfg: dst_cfg.to_string(),
             tasking_cfg: tasking_cfg.to_string(),
+            debug_text: debug_text.to_string(),
+            properties: properties.to_string(),
         }
     }
 }
